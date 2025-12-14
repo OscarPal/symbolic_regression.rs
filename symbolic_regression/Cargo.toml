@@ -8,7 +8,7 @@ homepage = "https://github.com/MilesCranmer/symbolic_regression.rs"
 repository = "https://github.com/MilesCranmer/symbolic_regression.rs"
 readme = "README.md"
 documentation = "https://docs.rs/symbolic_regression"
-keywords = ["symbolic-regression", "genetic-programming", "evolutionary-algorithms"]
+keywords = ["symbolic-regression", "genetic-programming"]
 categories = ["science", "mathematics", "algorithms"]
 include = [
     "Cargo.toml",
