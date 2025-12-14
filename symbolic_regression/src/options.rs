@@ -42,20 +42,15 @@ impl Default for MutationWeights {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum OutputStyle {
     /// Enable ANSI styles only when stderr supports it (and `NO_COLOR` is not set).
+    #[default]
     Auto,
     /// Disable ANSI styles.
     Plain,
     /// Force ANSI styles (even when stderr is not a TTY).
     Ansi,
-}
-
-impl Default for OutputStyle {
-    fn default() -> Self {
-        Self::Auto
-    }
 }
 
 #[derive(Clone)]
