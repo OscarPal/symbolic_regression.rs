@@ -1,12 +1,26 @@
-name: CI
+name: CI (SR)
 
 on:
   pull_request:
     branches:
       - main
+    paths:
+      - symbolic_regression/**
+      - dynamic_expressions/**
+      - .cargo/**
+      - Cargo.toml
+      - codecov.yml
+      - .github/workflows/ci-symbolic-regression.yml
   push:
     branches:
       - main
+    paths:
+      - symbolic_regression/**
+      - dynamic_expressions/**
+      - .cargo/**
+      - Cargo.toml
+      - codecov.yml
+      - .github/workflows/ci-symbolic-regression.yml
   workflow_dispatch:
 
 concurrency:
@@ -33,7 +47,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: cargo build
-        run: cargo build --workspace --all-targets --all-features
+        run: cargo build -p symbolic_regression --all-targets --all-features
 
   cargo-fmt:
     name: cargo fmt
@@ -71,7 +85,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: cargo clippy
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy -p symbolic_regression --all-targets --all-features -- -D warnings
 
   cargo-test:
     name: cargo test
@@ -89,7 +103,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: cargo test
-        run: cargo test --workspace --all-targets --all-features
+        run: cargo test -p symbolic_regression --all-targets --all-features
 
   coverage:
     name: coverage (codecov)
@@ -117,11 +131,11 @@ jobs:
 
       - name: Generate coverage (lcov)
         if: env.HAS_CODECOV_ACCESS == 'true'
-        run: cargo llvm-cov --workspace --all-features --all-targets --lcov --output-path lcov.info
+        run: cargo llvm-cov -p symbolic_regression --all-features --all-targets --lcov --output-path lcov.info
 
       - name: Run tests (no coverage token)
         if: env.HAS_CODECOV_ACCESS != 'true'
-        run: cargo test --workspace --all-targets --all-features
+        run: cargo test -p symbolic_regression --all-targets --all-features
 
       - name: Upload to Codecov
         if: env.HAS_CODECOV_ACCESS == 'true'
@@ -147,7 +161,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: cargo doc
-        run: cargo doc --workspace --all-features --no-deps
+        run: cargo doc -p symbolic_regression --all-features --no-deps
 
   cargo-package:
     name: cargo package
@@ -163,9 +177,6 @@ jobs:
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
-
-      - name: cargo package dynamic_expressions
-        run: cargo package -p dynamic_expressions
 
       - name: cargo package symbolic_regression
         run: cargo package -p symbolic_regression
