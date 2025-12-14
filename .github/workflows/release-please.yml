@@ -1,0 +1,56 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      force_publish:
+        description: Force publish workflow
+        type: boolean
+        default: false
+        required: false
+      git_ref:
+        description: Git ref (commit SHA, tag, or branch) to publish from
+        type: string
+        required: false
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.force_publish }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Create release PR(s) / tag(s)
+    runs-on: ubuntu-latest
+
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+
+    steps:
+      - name: Release Please
+        id: release
+        uses: googleapis/release-please-action@v4
+        if: ${{ !github.event.inputs.git_ref }}
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    name: Publish to crates.io
+    needs: release-please
+    if: needs.release-please.outputs.created || (github.event.inputs.force_publish == 'true' && github.event.inputs.git_ref != '')
+    uses: ./.github/workflows/publish-crates.yml
+    with:
+      git_ref: ${{ github.event.inputs.git_ref || needs.release-please.outputs.tag_name }}
+    secrets: inherit

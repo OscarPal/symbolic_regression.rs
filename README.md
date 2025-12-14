@@ -16,8 +16,10 @@ Experimental Rust port of [`SymbolicRegression.jl`](https://github.com/MilesCran
 
 This workspace contains two crates:
 
-- `symbolic_regression`: symbolic regression search loop (`equation_search`, populations, mutations, HoF, constant optimization).
-- `dynamic_expressions`: fast batched evaluation + forward-mode derivatives for symbolic expressions.
+| Crate | crates.io | CI |
+|---|---|---|
+| [`symbolic_regression`](./symbolic_regression) | [![crates.io](https://img.shields.io/crates/v/symbolic_regression)](https://crates.io/crates/symbolic_regression) | [![CI](https://github.com/MilesCranmer/symbolic_regression.rs/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MilesCranmer/symbolic_regression.rs/actions/workflows/ci.yml) |
+| [`dynamic_expressions`](./dynamic_expressions) | [![crates.io](https://img.shields.io/crates/v/dynamic_expressions)](https://crates.io/crates/dynamic_expressions) | [![CI](https://github.com/MilesCranmer/symbolic_regression.rs/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MilesCranmer/symbolic_regression.rs/actions/workflows/ci.yml) |
 
 ## Quickstart
 
