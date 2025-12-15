@@ -118,6 +118,16 @@ select {
   min-width: 160px;
 }
 
+/* Ensure dropdown options remain readable in dark mode (avoid white-on-white). */
+select {
+  color: CanvasText;
+}
+
+select option {
+  color: CanvasText;
+  background-color: Canvas;
+}
+
 .textarea {
   width: 100%;
   resize: vertical;
