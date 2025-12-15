@@ -1,7 +1,6 @@
-dynamic_expressions = { version = "0.3.0", path = "dynamic_expressions", default-features = false }
-symbolic_regression = { version = "0.3.0", path = "symbolic_regression", default-features = false }[package]
+[package]
 name = "symbolic_regression_wasm"
-version = "0.1.0"
+version.workspace = true
 edition = "2021"
 license = "Apache-2.0"
 description = "WASM bindings for symbolic_regression (browser-friendly wrapper via wasm-bindgen)."

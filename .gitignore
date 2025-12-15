@@ -1,6 +1,9 @@
 target
 .cargo
 Cargo.lock
+/.cargo-home
+/.wasm-tools
 **/node_modules
 **/dist
 **/pkg
+**/.npm-cache

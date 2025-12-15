@@ -1,0 +1,141 @@
+/// <reference lib="webworker" />
+
+import init, { WasmSearch } from "../pkg/symbolic_regression_wasm.js";
+import type { WorkerFromWorkerMsg, WorkerToWorkerMsg } from "./protocol";
+
+let search: WasmSearch | null = null;
+let running = false;
+
+let snapshotIntervalMs = 200;
+let frontIntervalMs = 1000;
+let stepCycles = 10;
+let paretoK = 250;
+let frontK = 50;
+
+function post(msg: WorkerFromWorkerMsg): void {
+  self.postMessage(msg);
+}
+
+async function sleep0(): Promise<void> {
+  await new Promise((r) => setTimeout(r, 0));
+}
+
+async function runLoop(): Promise<void> {
+  if (!search) {
+    post({ type: "error", error: "search not initialized" });
+    return;
+  }
+
+  running = true;
+  let lastSnap = 0;
+  let lastFront = 0;
+
+  while (running && !search.is_finished()) {
+    search.step(stepCycles);
+
+    const now = performance.now();
+    if (now - lastSnap >= snapshotIntervalMs) {
+      const snap = search.step(0);
+      post({ type: "snapshot", snap });
+      lastSnap = now;
+    }
+    if (now - lastFront >= frontIntervalMs) {
+      const front = search.best_equations(frontK);
+      post({ type: "front_update", front });
+      lastFront = now;
+    }
+
+    await sleep0();
+  }
+
+  if (!running) {
+    post({ type: "paused" });
+    return;
+  }
+
+  post({ type: "snapshot", snap: search.step(0) });
+  post({ type: "front_update", front: search.best_equations(frontK) });
+  post({ type: "done" });
+  running = false;
+}
+
+self.onmessage = async (e: MessageEvent<WorkerToWorkerMsg>) => {
+  const msg = e.data;
+  try {
+    if (msg.type === "init") {
+      running = false;
+      await init();
+      paretoK = msg.paretoK ?? paretoK;
+      frontK = msg.frontK ?? frontK;
+      search = new WasmSearch(msg.csvText, msg.options as any, msg.unary as any, msg.binary as any, msg.ternary as any);
+      search.set_pareto_k(paretoK);
+      const split = search.get_split_indices();
+      post({ type: "ready", split });
+      return;
+    }
+
+    if (msg.type === "reset") {
+      running = false;
+      search = null;
+      post({ type: "reset_done" });
+      return;
+    }
+
+    if (msg.type === "pause") {
+      running = false;
+      post({ type: "paused" });
+      return;
+    }
+
+    if (msg.type === "set_snapshot_rate") {
+      snapshotIntervalMs = Math.max(10, msg.snapshotIntervalMs | 0);
+      return;
+    }
+
+    if (msg.type === "set_front_rate") {
+      frontIntervalMs = Math.max(50, msg.frontIntervalMs | 0);
+      return;
+    }
+
+    if (msg.type === "set_pareto_k") {
+      paretoK = Math.max(10, msg.paretoK | 0);
+      if (search) search.set_pareto_k(paretoK);
+      return;
+    }
+
+    if (msg.type === "step") {
+      if (!search) {
+        post({ type: "error", error: "search not initialized" });
+        return;
+      }
+      search.step(Math.max(0, msg.cycles | 0));
+      post({ type: "snapshot", snap: search.step(0) });
+      post({ type: "front_update", front: search.best_equations(frontK) });
+      return;
+    }
+
+    if (msg.type === "evaluate") {
+      if (!search) {
+        post({ type: "error", error: "search not initialized" });
+        return;
+      }
+      const result = search.evaluate_member(msg.memberId, msg.which);
+      post({ type: "eval_result", requestId: msg.requestId, result });
+      return;
+    }
+
+    if (msg.type === "start") {
+      if (!search) {
+        post({ type: "error", error: "search not initialized" });
+        return;
+      }
+      if (!running) {
+        void runLoop();
+      }
+      return;
+    }
+  } catch (err) {
+    post({ type: "error", error: String(err) });
+  }
+};
+
