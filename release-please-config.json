@@ -20,8 +20,17 @@
       "prerelease": false,
       "include-component-in-tag": true,
       "include-v-in-tag": true
+    },
+    "symbolic_regression_wasm": {
+      "release-type": "rust",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "draft": false,
+      "prerelease": false,
+      "include-component-in-tag": true,
+      "include-v-in-tag": true
     }
   },
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json"
 }
-

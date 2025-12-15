@@ -39,7 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           CRATE=dynamic_expressions
-          VERSION=$(grep -m1 '^version' "$CRATE/Cargo.toml" | cut -d'"' -f2)
+          VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print([p["version"] for p in d["packages"] if p["name"]=="dynamic_expressions"][0])')
           if curl -sSf "https://crates.io/api/v1/crates/$CRATE" | grep -q "\"num\":\"$VERSION\""; then
             echo "$CRATE $VERSION already exists on crates.io – skipping publish."
           else
@@ -51,10 +51,21 @@ jobs:
         run: |
           set -euo pipefail
           CRATE=symbolic_regression
-          VERSION=$(grep -m1 '^version' "$CRATE/Cargo.toml" | cut -d'"' -f2)
+          VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print([p["version"] for p in d["packages"] if p["name"]=="symbolic_regression"][0])')
           if curl -sSf "https://crates.io/api/v1/crates/$CRATE" | grep -q "\"num\":\"$VERSION\""; then
             echo "$CRATE $VERSION already exists on crates.io – skipping publish."
           else
             cargo publish -p "$CRATE" --verbose --no-verify --token "${{ secrets.CARGO_REGISTRY_TOKEN }}"
           fi
 
+      - name: Publish symbolic_regression_wasm
+        shell: bash
+        run: |
+          set -euo pipefail
+          CRATE=symbolic_regression_wasm
+          VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print([p["version"] for p in d["packages"] if p["name"]=="symbolic_regression_wasm"][0])')
+          if curl -sSf "https://crates.io/api/v1/crates/$CRATE" | grep -q "\"num\":\"$VERSION\""; then
+            echo "$CRATE $VERSION already exists on crates.io – skipping publish."
+          else
+            cargo publish -p "$CRATE" --verbose --no-verify --token "${{ secrets.CARGO_REGISTRY_TOKEN }}"
+          fi
