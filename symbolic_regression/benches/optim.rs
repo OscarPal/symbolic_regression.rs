@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use symbolic_regression::bench::{
     bfgs_quadratic_n16, constant_opt_linear_env, run_constant_opt_linear,
 };
@@ -6,7 +6,7 @@ use symbolic_regression::bench::{
 fn bench_bfgs_quadratic(c: &mut Criterion) {
     c.bench_function("optim/bfgs_quadratic_n16", |b| {
         b.iter(|| {
-            black_box(bfgs_quadratic_n16());
+            std::hint::black_box(bfgs_quadratic_n16());
         })
     });
 }
@@ -17,7 +17,7 @@ fn bench_constant_optimization(c: &mut Criterion) {
         b.iter_batched(
             || (),
             |_| {
-                black_box(run_constant_opt_linear(&env));
+                std::hint::black_box(run_constant_opt_linear(&env));
             },
             BatchSize::SmallInput,
         );
