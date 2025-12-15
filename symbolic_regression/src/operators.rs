@@ -1,7 +1,10 @@
 use dynamic_expressions::operators::builtin::OpMeta;
 use dynamic_expressions::operators::builtin::{Add, Div, Mul, Sub};
 use dynamic_expressions::operators::scalar::{HasOp, OpId};
+use dynamic_expressions::operators::OpRegistry;
 use rand::Rng;
+use std::collections::HashSet;
+use std::fmt;
 use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
@@ -16,6 +19,51 @@ pub struct OpSpec {
 pub struct Operators<const D: usize> {
     pub ops_by_arity: [Vec<OpSpec>; D],
 }
+
+#[derive(Debug, Clone)]
+pub enum OperatorSelectError {
+    Lookup(dynamic_expressions::operators::LookupError),
+    ArityMismatch {
+        token: String,
+        expected: u8,
+        found: u8,
+    },
+    ArityTooLarge {
+        token: String,
+        arity: u8,
+        max_arity: usize,
+    },
+    Duplicate(String),
+    Empty,
+}
+
+impl fmt::Display for OperatorSelectError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OperatorSelectError::Lookup(e) => write!(f, "{e:?}"),
+            OperatorSelectError::ArityMismatch {
+                token,
+                expected,
+                found,
+            } => write!(
+                f,
+                "operator token {token:?} has arity={found} but was provided for arity={expected}"
+            ),
+            OperatorSelectError::ArityTooLarge {
+                token,
+                arity,
+                max_arity,
+            } => write!(
+                f,
+                "operator token {token:?} has arity={arity} which exceeds D={max_arity}"
+            ),
+            OperatorSelectError::Duplicate(tok) => write!(f, "duplicate operator token {tok:?}"),
+            OperatorSelectError::Empty => write!(f, "no operators provided"),
+        }
+    }
+}
+
+impl std::error::Error for OperatorSelectError {}
 
 impl<const D: usize> Operators<D> {
     pub fn new() -> Self {
@@ -57,6 +105,88 @@ impl<const D: usize> Operators<D> {
         let v = &self.ops_by_arity[arity - 1];
         let i = rng.gen_range(0..v.len());
         &v[i]
+    }
+
+    pub fn from_names<Ops: OpRegistry>(names: &[&str]) -> Result<Self, OperatorSelectError> {
+        if names.is_empty() {
+            return Err(OperatorSelectError::Empty);
+        }
+        let mut out = Operators::new();
+        let mut seen: HashSet<(u8, u16)> = HashSet::new();
+
+        for &tok in names {
+            let info = Ops::lookup(tok).map_err(OperatorSelectError::Lookup)?;
+            if (info.op.arity as usize) > D {
+                return Err(OperatorSelectError::ArityTooLarge {
+                    token: tok.to_string(),
+                    arity: info.op.arity,
+                    max_arity: D,
+                });
+            }
+            let key = (info.op.arity, info.op.id);
+            if !seen.insert(key) {
+                return Err(OperatorSelectError::Duplicate(tok.to_string()));
+            }
+            out.push(
+                info.op.arity as usize,
+                OpSpec {
+                    op: info.op,
+                    commutative: info.commutative,
+                    associative: info.associative,
+                    complexity: info.complexity,
+                },
+            );
+        }
+        Ok(out)
+    }
+
+    pub fn from_names_by_arity<Ops: OpRegistry>(
+        unary: &[&str],
+        binary: &[&str],
+        ternary: &[&str],
+    ) -> Result<Self, OperatorSelectError> {
+        if unary.is_empty() && binary.is_empty() && ternary.is_empty() {
+            return Err(OperatorSelectError::Empty);
+        }
+
+        let mut out = Operators::new();
+        let mut seen: HashSet<(u8, u16)> = HashSet::new();
+
+        for (expected, toks) in [(1u8, unary), (2u8, binary), (3u8, ternary)] {
+            for &tok in toks {
+                let info =
+                    Ops::lookup_with_arity(tok, expected).map_err(OperatorSelectError::Lookup)?;
+                if info.op.arity != expected {
+                    return Err(OperatorSelectError::ArityMismatch {
+                        token: tok.to_string(),
+                        expected,
+                        found: info.op.arity,
+                    });
+                }
+                if (info.op.arity as usize) > D {
+                    return Err(OperatorSelectError::ArityTooLarge {
+                        token: tok.to_string(),
+                        arity: info.op.arity,
+                        max_arity: D,
+                    });
+                }
+                let key = (info.op.arity, info.op.id);
+                if !seen.insert(key) {
+                    return Err(OperatorSelectError::Duplicate(tok.to_string()));
+                }
+                out.push(
+                    info.op.arity as usize,
+                    OpSpec {
+                        op: info.op,
+                        commutative: info.commutative,
+                        associative: info.associative,
+                        complexity: info.complexity,
+                    },
+                );
+            }
+        }
+
+        Ok(out)
     }
 }
 
@@ -153,5 +283,32 @@ impl<Ops, const D: usize> OperatorsBuilder<Ops, D> {
             },
         );
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use dynamic_expressions::operators::builtin::{Neg, Sub};
+    use dynamic_expressions::operators::presets::BuiltinOpsF64;
+    use dynamic_expressions::operators::scalar::HasOp;
+
+    #[test]
+    fn from_names_by_arity_resolves_dash_by_arity() {
+        let unary = ["-"];
+        let ops = Operators::<3>::from_names_by_arity::<BuiltinOpsF64>(&unary, &[], &[]).unwrap();
+        assert_eq!(ops.nops(1), 1);
+        assert_eq!(
+            ops.ops_by_arity[0][0].op.id,
+            <BuiltinOpsF64 as HasOp<Neg, 1>>::ID
+        );
+
+        let binary = ["-"];
+        let ops = Operators::<3>::from_names_by_arity::<BuiltinOpsF64>(&[], &binary, &[]).unwrap();
+        assert_eq!(ops.nops(2), 1);
+        assert_eq!(
+            ops.ops_by_arity[1][0].op.id,
+            <BuiltinOpsF64 as HasOp<Sub, 2>>::ID
+        );
     }
 }
