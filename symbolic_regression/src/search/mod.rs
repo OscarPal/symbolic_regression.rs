@@ -109,12 +109,12 @@ where
     #[cfg(target_arch = "wasm32")]
     {
         let engine = SearchEngine::<T, Ops, D>::new(dataset.clone(), options.clone());
-        return engine.run_to_completion();
+        engine.run_to_completion()
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     {
-        return equation_search_parallel::<T, Ops, D>(dataset, options);
+        equation_search_parallel::<T, Ops, D>(dataset, options)
     }
 }
 
