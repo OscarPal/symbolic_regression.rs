@@ -48,9 +48,14 @@ pub fn print_operator_list<OpsReg: OpRegistry>() {
         }
     }
 
+    let headings = [
+        "--unary-operators",
+        "--binary-operators",
+        "--ternary-operators",
+    ];
     for (arity, items) in by_arity.iter_mut().enumerate() {
         items.sort_by_key(|i| i.name);
-        println!("arity {}:", arity + 1);
+        println!("{}:", headings[arity]);
         for i in items.iter() {
             if let Some(infix) = i.infix {
                 println!("  {:<10} display={:<4} infix={}", i.name, i.display, infix);

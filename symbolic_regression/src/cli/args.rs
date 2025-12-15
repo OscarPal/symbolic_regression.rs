@@ -9,7 +9,8 @@ use crate::options::cli_args::OptionsArgs;
 #[command(about = "Symbolic regression CLI (experimental)")]
 pub struct Cli {
     /// Input dataset path (.csv or .xlsx).
-    pub data: PathBuf,
+    #[arg(required_unless_present = "list_operators")]
+    pub data: Option<PathBuf>,
 
     /// Sheet name for .xlsx (defaults to the first sheet).
     #[arg(long)]

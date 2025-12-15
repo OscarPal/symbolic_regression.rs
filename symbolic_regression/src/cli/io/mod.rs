@@ -10,7 +10,10 @@ use ndarray::{Array1, Array2};
 pub use table::Table;
 
 pub fn load_table(cli: &Cli) -> anyhow::Result<Table> {
-    let path = &cli.data;
+    let path = cli
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("missing input dataset path"))?;
     let ext = path
         .extension()
         .and_then(|s| s.to_str())

@@ -72,14 +72,13 @@ fn symreg_runs_on_tiny_csv() {
 #[test]
 fn symreg_list_operators_prints_registry() {
     let out = Command::new(env!("CARGO_BIN_EXE_symreg"))
-        .arg("does_not_matter.csv")
         .arg("--list-operators")
         .output()
         .unwrap();
     assert!(out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("arity 1:"));
-    assert!(stdout.contains("arity 2:"));
+    assert!(stdout.contains("--unary-operators:"));
+    assert!(stdout.contains("--binary-operators:"));
 }
 
 #[test]
