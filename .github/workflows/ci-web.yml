@@ -82,7 +82,7 @@ jobs:
       - name: Build WASM package for web/ui
         run: |
           cd web/wasm
-          wasm-pack build --mode no-install --no-opt --target web --out-dir ../ui/src/pkg
+          wasm-pack build --no-opt --target web --out-dir ../ui/src/pkg
 
       - name: Setup Node
         uses: actions/setup-node@v4
