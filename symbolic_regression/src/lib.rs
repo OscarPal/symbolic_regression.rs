@@ -17,6 +17,9 @@ pub(crate) mod selection;
 #[cfg(feature = "cli")]
 pub mod cli;
 
+#[cfg(feature = "bench")]
+pub mod bench;
+
 pub use dataset::Dataset;
 pub use hall_of_fame::HallOfFame;
 pub use loss::mse;

@@ -48,7 +48,9 @@ cli = [
     "dep:serde",
     "dep:serde_json",
 ]
+bench = []
 [dev-dependencies]
+criterion = "0.5"
 rust_xlsxwriter = "0.92"
 tempfile = "3"
 
@@ -56,3 +58,8 @@ tempfile = "3"
 name = "symreg"
 path = "src/bin/symreg.rs"
 required-features = ["cli"]
+
+[[bench]]
+name = "optim"
+harness = false
+required-features = ["bench"]
