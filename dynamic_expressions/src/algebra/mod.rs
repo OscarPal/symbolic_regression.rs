@@ -9,6 +9,72 @@ pub fn lit<T>(v: T) -> Lit<T> {
     Lit(v)
 }
 
+macro_rules! impl_postfix_binop_self {
+    ($Trait:ident, $method:ident, $Marker:ident) => {
+        impl<T, Ops, const D: usize> core::ops::$Trait for PostfixExpr<T, Ops, D>
+        where
+            Ops: HasOp<$Marker, 2>,
+        {
+            type Output = Self;
+
+            fn $method(self, rhs: Self) -> Self::Output {
+                __apply_postfix::<T, Ops, D, 2>(<Ops as HasOp<$Marker, 2>>::ID, [self, rhs])
+            }
+        }
+    };
+}
+
+macro_rules! impl_postfix_binop_scalar_rhs {
+    ($Trait:ident, $method:ident, $Marker:ident) => {
+        impl<T, Ops, const D: usize> core::ops::$Trait<T> for PostfixExpr<T, Ops, D>
+        where
+            Ops: HasOp<$Marker, 2>,
+        {
+            type Output = Self;
+
+            fn $method(self, rhs: T) -> Self::Output {
+                __apply_postfix::<T, Ops, D, 2>(
+                    <Ops as HasOp<$Marker, 2>>::ID,
+                    [self, __const_expr::<T, Ops, D>(rhs)],
+                )
+            }
+        }
+    };
+}
+
+macro_rules! impl_lit_binop_postfix_rhs {
+    ($Trait:ident, $method:ident, $Marker:ident) => {
+        impl<T, Ops, const D: usize> core::ops::$Trait<PostfixExpr<T, Ops, D>> for Lit<T>
+        where
+            Ops: HasOp<$Marker, 2>,
+        {
+            type Output = PostfixExpr<T, Ops, D>;
+
+            fn $method(self, rhs: PostfixExpr<T, Ops, D>) -> Self::Output {
+                __apply_postfix::<T, Ops, D, 2>(
+                    <Ops as HasOp<$Marker, 2>>::ID,
+                    [__const_expr::<T, Ops, D>(self.0), rhs],
+                )
+            }
+        }
+    };
+}
+
+macro_rules! impl_postfix_unop {
+    ($Trait:ident, $method:ident, $Marker:ident, $arity:expr) => {
+        impl<T, Ops, const D: usize> core::ops::$Trait for PostfixExpr<T, Ops, D>
+        where
+            Ops: HasOp<$Marker, $arity>,
+        {
+            type Output = Self;
+
+            fn $method(self) -> Self::Output {
+                __apply_postfix::<T, Ops, D, $arity>(<Ops as HasOp<$Marker, $arity>>::ID, [self])
+            }
+        }
+    };
+}
+
 #[doc(hidden)]
 pub fn __apply_postfix<T, Ops, const D: usize, const A: usize>(
     op_id: u16,
@@ -57,169 +123,19 @@ fn __const_expr<T, Ops, const D: usize>(value: T) -> PostfixExpr<T, Ops, D> {
     )
 }
 
-impl<T, Ops, const D: usize> core::ops::Add for PostfixExpr<T, Ops, D>
-where
-    Ops: HasOp<Add, 2>,
-{
-    type Output = Self;
+impl_postfix_binop_self!(Add, add, Add);
+impl_postfix_binop_self!(Sub, sub, Sub);
+impl_postfix_binop_self!(Mul, mul, Mul);
+impl_postfix_binop_self!(Div, div, Div);
 
-    fn add(self, rhs: Self) -> Self::Output {
-        __apply_postfix::<T, Ops, D, 2>(<Ops as HasOp<Add, 2>>::ID, [self, rhs])
-    }
-}
+impl_postfix_unop!(Neg, neg, Neg, 1);
 
-impl<T, Ops, const D: usize> core::ops::Sub for PostfixExpr<T, Ops, D>
-where
-    Ops: HasOp<Sub, 2>,
-{
-    type Output = Self;
+impl_postfix_binop_scalar_rhs!(Add, add, Add);
+impl_postfix_binop_scalar_rhs!(Sub, sub, Sub);
+impl_postfix_binop_scalar_rhs!(Mul, mul, Mul);
+impl_postfix_binop_scalar_rhs!(Div, div, Div);
 
-    fn sub(self, rhs: Self) -> Self::Output {
-        __apply_postfix::<T, Ops, D, 2>(<Ops as HasOp<Sub, 2>>::ID, [self, rhs])
-    }
-}
-
-impl<T, Ops, const D: usize> core::ops::Mul for PostfixExpr<T, Ops, D>
-where
-    Ops: HasOp<Mul, 2>,
-{
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self::Output {
-        __apply_postfix::<T, Ops, D, 2>(<Ops as HasOp<Mul, 2>>::ID, [self, rhs])
-    }
-}
-
-impl<T, Ops, const D: usize> core::ops::Div for PostfixExpr<T, Ops, D>
-where
-    Ops: HasOp<Div, 2>,
-{
-    type Output = Self;
-
-    fn div(self, rhs: Self) -> Self::Output {
-        __apply_postfix::<T, Ops, D, 2>(<Ops as HasOp<Div, 2>>::ID, [self, rhs])
-    }
-}
-
-impl<T, Ops, const D: usize> core::ops::Neg for PostfixExpr<T, Ops, D>
-where
-    Ops: HasOp<Neg, 1>,
-{
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        __apply_postfix::<T, Ops, D, 1>(<Ops as HasOp<Neg, 1>>::ID, [self])
-    }
-}
-
-impl<T, Ops, const D: usize> core::ops::Add<T> for PostfixExpr<T, Ops, D>
-where
-    Ops: HasOp<Add, 2>,
-{
-    type Output = Self;
-
-    fn add(self, rhs: T) -> Self::Output {
-        __apply_postfix::<T, Ops, D, 2>(
-            <Ops as HasOp<Add, 2>>::ID,
-            [self, __const_expr::<T, Ops, D>(rhs)],
-        )
-    }
-}
-
-impl<T, Ops, const D: usize> core::ops::Sub<T> for PostfixExpr<T, Ops, D>
-where
-    Ops: HasOp<Sub, 2>,
-{
-    type Output = Self;
-
-    fn sub(self, rhs: T) -> Self::Output {
-        __apply_postfix::<T, Ops, D, 2>(
-            <Ops as HasOp<Sub, 2>>::ID,
-            [self, __const_expr::<T, Ops, D>(rhs)],
-        )
-    }
-}
-
-impl<T, Ops, const D: usize> core::ops::Mul<T> for PostfixExpr<T, Ops, D>
-where
-    Ops: HasOp<Mul, 2>,
-{
-    type Output = Self;
-
-    fn mul(self, rhs: T) -> Self::Output {
-        __apply_postfix::<T, Ops, D, 2>(
-            <Ops as HasOp<Mul, 2>>::ID,
-            [self, __const_expr::<T, Ops, D>(rhs)],
-        )
-    }
-}
-
-impl<T, Ops, const D: usize> core::ops::Div<T> for PostfixExpr<T, Ops, D>
-where
-    Ops: HasOp<Div, 2>,
-{
-    type Output = Self;
-
-    fn div(self, rhs: T) -> Self::Output {
-        __apply_postfix::<T, Ops, D, 2>(
-            <Ops as HasOp<Div, 2>>::ID,
-            [self, __const_expr::<T, Ops, D>(rhs)],
-        )
-    }
-}
-
-impl<T, Ops, const D: usize> core::ops::Add<PostfixExpr<T, Ops, D>> for Lit<T>
-where
-    Ops: HasOp<Add, 2>,
-{
-    type Output = PostfixExpr<T, Ops, D>;
-
-    fn add(self, rhs: PostfixExpr<T, Ops, D>) -> Self::Output {
-        __apply_postfix::<T, Ops, D, 2>(
-            <Ops as HasOp<Add, 2>>::ID,
-            [__const_expr::<T, Ops, D>(self.0), rhs],
-        )
-    }
-}
-
-impl<T, Ops, const D: usize> core::ops::Sub<PostfixExpr<T, Ops, D>> for Lit<T>
-where
-    Ops: HasOp<Sub, 2>,
-{
-    type Output = PostfixExpr<T, Ops, D>;
-
-    fn sub(self, rhs: PostfixExpr<T, Ops, D>) -> Self::Output {
-        __apply_postfix::<T, Ops, D, 2>(
-            <Ops as HasOp<Sub, 2>>::ID,
-            [__const_expr::<T, Ops, D>(self.0), rhs],
-        )
-    }
-}
-
-impl<T, Ops, const D: usize> core::ops::Mul<PostfixExpr<T, Ops, D>> for Lit<T>
-where
-    Ops: HasOp<Mul, 2>,
-{
-    type Output = PostfixExpr<T, Ops, D>;
-
-    fn mul(self, rhs: PostfixExpr<T, Ops, D>) -> Self::Output {
-        __apply_postfix::<T, Ops, D, 2>(
-            <Ops as HasOp<Mul, 2>>::ID,
-            [__const_expr::<T, Ops, D>(self.0), rhs],
-        )
-    }
-}
-
-impl<T, Ops, const D: usize> core::ops::Div<PostfixExpr<T, Ops, D>> for Lit<T>
-where
-    Ops: HasOp<Div, 2>,
-{
-    type Output = PostfixExpr<T, Ops, D>;
-
-    fn div(self, rhs: PostfixExpr<T, Ops, D>) -> Self::Output {
-        __apply_postfix::<T, Ops, D, 2>(
-            <Ops as HasOp<Div, 2>>::ID,
-            [__const_expr::<T, Ops, D>(self.0), rhs],
-        )
-    }
-}
+impl_lit_binop_postfix_rhs!(Add, add, Add);
+impl_lit_binop_postfix_rhs!(Sub, sub, Sub);
+impl_lit_binop_postfix_rhs!(Mul, mul, Mul);
+impl_lit_binop_postfix_rhs!(Div, div, Div);
