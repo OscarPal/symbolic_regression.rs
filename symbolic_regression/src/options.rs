@@ -2,45 +2,141 @@ use crate::loss::{mse, LossObject};
 use crate::operators::Operators;
 use num_traits::Float;
 
-#[derive(Clone, Debug)]
-pub struct MutationWeights {
-    pub mutate_constant: f64,
-    pub mutate_operator: f64,
-    pub mutate_feature: f64,
-    pub swap_operands: f64,
-    pub rotate_tree: f64,
-    pub add_node: f64,
-    pub insert_node: f64,
-    pub delete_node: f64,
-    pub simplify: f64,
-    pub randomize: f64,
-    pub do_nothing: f64,
-    pub optimize: f64,
-    pub form_connection: f64,
-    pub break_connection: f64,
+#[rustfmt::skip]
+macro_rules! sr_mutation_weights_spec {
+    ($m:ident) => {
+        $m! {
+            mutate_constant:
+                (f64, 0.0346, "mw-mutate-constant"),
+            mutate_operator:
+                (f64, 0.293, "mw-mutate-operator"),
+            mutate_feature:
+                (f64, 0.1, "mw-mutate-feature"),
+            swap_operands:
+                (f64, 0.198, "mw-swap-operands"),
+            rotate_tree:
+                (f64, 4.26, "mw-rotate-tree"),
+            add_node:
+                (f64, 2.47, "mw-add-node"),
+            insert_node:
+                (f64, 0.0112, "mw-insert-node"),
+            delete_node:
+                (f64, 0.870, "mw-delete-node"),
+            simplify:
+                (f64, 0.00209, "mw-simplify"),
+            randomize:
+                (f64, 0.000502, "mw-randomize"),
+            do_nothing:
+                (f64, 0.273, "mw-do-nothing"),
+            optimize:
+                (f64, 0.0, "mw-optimize"),
+            form_connection:
+                (f64, 0.5, "mw-form-connection"),
+            break_connection:
+                (f64, 0.1, "mw-break-connection"),
+        }
+    };
 }
 
-impl Default for MutationWeights {
-    fn default() -> Self {
-        // Defaults from SymbolicRegression.jl `default_options()` (>= v1.0.0 branch).
-        Self {
-            mutate_constant: 0.0346,
-            mutate_operator: 0.293,
-            mutate_feature: 0.1,
-            swap_operands: 0.198,
-            rotate_tree: 4.26,
-            add_node: 2.47,
-            insert_node: 0.0112,
-            delete_node: 0.870,
-            simplify: 0.00209,
-            randomize: 0.000502,
-            do_nothing: 0.273,
-            optimize: 0.0,
-            form_connection: 0.5,
-            break_connection: 0.1,
+#[rustfmt::skip]
+macro_rules! sr_options_spec {
+    ($m:ident) => {
+        $m! {
+            values {
+                seed:
+                    (u64, 0, "seed"),
+                niterations:
+                    (usize, 10, "niterations"),
+                populations:
+                    (usize, 31, "populations"),
+                population_size:
+                    (usize, 27, "population-size"),
+                ncycles_per_iteration:
+                    (usize, 380, "ncycles-per-iteration"),
+                maxsize:
+                    (usize, 30, "maxsize"),
+                maxdepth:
+                    (usize, 10, "maxdepth"),
+                warmup_maxsize_by: 
+                    (f32, 0.0, "warmup-maxsize-by"),
+                parsimony:
+                    (f64, 0.0, "parsimony"),
+                adaptive_parsimony_scaling:
+                    (f64, 20.0, "adaptive-parsimony-scaling"),
+                crossover_probability:
+                    (f64, 0.0259, "crossover-probability"),
+                perturbation_factor:
+                    (f64, 0.129, "perturbation-factor"),
+                probability_negate_constant:
+                    (f64, 0.00743, "probability-negate-constant"),
+                tournament_selection_n:
+                    (usize, 15, "tournament-selection-n"),
+                tournament_selection_p:
+                    (f32, 0.982, "tournament-selection-p"),
+                alpha:
+                    (f64, 3.17, "alpha"),
+                optimizer_nrestarts:
+                    (usize, 2, "optimizer-nrestarts"),
+                optimizer_probability:
+                    (f64, 0.14, "optimizer-probability"),
+                optimizer_iterations:
+                    (usize, 8, "optimizer-iterations"),
+                optimizer_f_calls_limit:
+                    (usize, 10_000, "optimizer-f-calls-limit"),
+                fraction_replaced:
+                    (f64, 0.00036, "fraction-replaced"),
+                fraction_replaced_hof:
+                    (f64, 0.0614, "fraction-replaced-hof"),
+                fraction_replaced_guesses:
+                    (f64, 0.001, "fraction-replaced-guesses"),
+                topn:
+                    (usize, 12, "topn"),
+            }
+            neg_flags {
+                use_frequency:
+                    (true, no_use_frequency, "no-use-frequency"),
+                use_frequency_in_tournament:
+                    (true, no_use_frequency_in_tournament, "no-use-frequency-in-tournament"),
+                skip_mutation_failures:
+                    (true, no_skip_mutation_failures, "no-skip-mutation-failures"),
+                annealing:
+                    (true, no_annealing, "no-annealing"),
+                should_optimize_constants:
+                    (true, no_should_optimize_constants, "no-should-optimize-constants"),
+                migration:
+                    (true, no_migration, "no-migration"),
+                hof_migration:
+                    (true, no_hof_migration, "no-hof-migration"),
+                use_baseline:
+                    (true, no_use_baseline, "no-use-baseline"),
+                progress:
+                    (true, no_progress, "no-progress"),
+            }
+            pos_flags {
+                should_simplify:
+                    (false, should_simplify, "should-simplify"),
+            }
         }
-    }
+    };
 }
+
+#[rustfmt::skip]
+macro_rules! __define_mutation_weights {
+    ( $( $name:ident: ($ty:ty, $default:expr, $cli_long:literal), )* ) => {
+        #[derive(Clone, Debug)]
+        pub struct MutationWeights {
+            $(pub $name: $ty,)*
+        }
+
+        impl Default for MutationWeights {
+            fn default() -> Self {
+                Self { $($name: $default,)* }
+            }
+        }
+    };
+}
+
+sr_mutation_weights_spec!(__define_mutation_weights);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum OutputStyle {
@@ -53,113 +149,154 @@ pub enum OutputStyle {
     Ansi,
 }
 
-#[derive(Clone)]
-pub struct Options<T: Float, const D: usize> {
-    pub seed: u64,
+macro_rules! __define_options {
+    (
+        values { $( $name:ident: ($ty:ty, $default:expr, $cli_long:literal), )* }
+        neg_flags { $( $iname:ident: ($bdefault:expr, $cli_name:ident, $cli_blong:literal), )* }
+        pos_flags { $( $pname:ident: ($pdefault:expr, $cli_pname:ident, $cli_plong:literal), )* }
+    ) => {
+        #[derive(Clone)]
+        pub struct Options<T: Float, const D: usize> {
+            $(pub $name: $ty,)*
+            $(pub $iname: bool,)*
+            $(pub $pname: bool,)*
 
-    // Search size / structure
-    pub niterations: usize,
-    pub populations: usize,
-    pub population_size: usize,
-    pub ncycles_per_iteration: usize,
+            pub operators: Operators<D>,
+            pub mutation_weights: MutationWeights,
+            pub loss: LossObject<T>,
 
-    // Operators and constraints
-    pub operators: Operators<D>,
-    pub maxsize: usize,
-    pub maxdepth: usize,
-    pub warmup_maxsize_by: f32,
+            pub output_style: OutputStyle,
+        }
 
-    // Working with complexities / adaptive parsimony
-    pub parsimony: f64,
-    pub adaptive_parsimony_scaling: f64,
-    pub use_frequency: bool,
-    pub use_frequency_in_tournament: bool,
-
-    // Mutations
-    pub mutation_weights: MutationWeights,
-    pub crossover_probability: f64,
-    pub perturbation_factor: f64,
-    pub probability_negate_constant: f64,
-    pub skip_mutation_failures: bool,
-
-    // Tournament selection
-    pub tournament_selection_n: usize,
-    pub tournament_selection_p: f32,
-
-    // Annealing
-    pub annealing: bool,
-    pub alpha: f64,
-
-    // Constant optimization
-    pub optimizer_nrestarts: usize,
-    pub optimizer_probability: f64,
-    pub optimizer_iterations: usize,
-    pub optimizer_f_calls_limit: usize,
-    pub should_optimize_constants: bool,
-
-    // Simplification (stubbed, but controls weighting)
-    pub should_simplify: bool,
-
-    // Migration (simple port)
-    pub migration: bool,
-    pub hof_migration: bool,
-    pub fraction_replaced: f64,
-    pub fraction_replaced_hof: f64,
-    pub fraction_replaced_guesses: f64,
-    pub topn: usize,
-
-    // Loss
-    pub loss: LossObject<T>,
-
-    // Baseline normalization
-    pub use_baseline: bool,
-
-    // Runtime / UI
-    pub progress: bool,
-    pub output_style: OutputStyle,
+        impl<T: Float, const D: usize> Default for Options<T, D> {
+            fn default() -> Self {
+                Self {
+                    $($name: $default,)*
+                    $($iname: $bdefault,)*
+                    $($pname: $pdefault,)*
+                    operators: Operators::new(),
+                    mutation_weights: MutationWeights::default(),
+                    loss: mse::<T>(),
+                    output_style: OutputStyle::Auto,
+                }
+            }
+        }
+    };
 }
 
-impl<T: Float, const D: usize> Default for Options<T, D> {
-    fn default() -> Self {
-        Self {
-            seed: 0,
-            niterations: 10,
-            populations: 31,
-            population_size: 27,
-            ncycles_per_iteration: 380,
-            operators: Operators::new(),
-            maxsize: 30,
-            maxdepth: 10,
-            warmup_maxsize_by: 0.0,
-            parsimony: 0.0,
-            adaptive_parsimony_scaling: 20.0,
-            use_frequency: true,
-            use_frequency_in_tournament: true,
-            mutation_weights: MutationWeights::default(),
-            crossover_probability: 0.0259,
-            perturbation_factor: 0.129,
-            probability_negate_constant: 0.00743,
-            skip_mutation_failures: true,
-            tournament_selection_n: 15,
-            tournament_selection_p: 0.982,
-            annealing: true,
-            alpha: 3.17,
-            optimizer_nrestarts: 2,
-            optimizer_probability: 0.14,
-            optimizer_iterations: 8,
-            optimizer_f_calls_limit: 10_000,
-            should_optimize_constants: true,
-            should_simplify: false,
-            migration: true,
-            hof_migration: true,
-            fraction_replaced: 0.00036,
-            fraction_replaced_hof: 0.0614,
-            fraction_replaced_guesses: 0.001,
-            topn: 12,
-            loss: mse::<T>(),
-            use_baseline: true,
-            progress: true,
-            output_style: OutputStyle::Auto,
-        }
+sr_options_spec!(__define_options);
+
+#[cfg(feature = "cli")]
+pub(crate) mod cli_args {
+    use super::{MutationWeights, Options, OutputStyle};
+    use clap::{Args, ValueEnum};
+    use num_traits::Float;
+
+    #[derive(Copy, Clone, Debug, ValueEnum)]
+    pub enum OutputStyleCli {
+        Auto,
+        Plain,
+        Ansi,
+    }
+
+    macro_rules! __define_mutation_weights_args {
+        ( $( $name:ident: ($ty:ty, $default:expr, $cli_long:literal), )* ) => {
+            #[derive(Args, Debug, Clone, Default)]
+            pub struct MutationWeightsArgs {
+                $(#[arg(long = $cli_long)] pub $name: Option<$ty>,)*
+            }
+
+            impl MutationWeightsArgs {
+                pub fn apply_to(&self, w: &mut MutationWeights) {
+                    $(if let Some(v) = self.$name { w.$name = v; })*
+                }
+            }
+        };
+    }
+
+    sr_mutation_weights_spec!(__define_mutation_weights_args);
+
+    macro_rules! __define_options_args {
+        (
+            values { $( $name:ident: ($ty:ty, $default:expr, $cli_long:literal), )* }
+            neg_flags { $( $iname:ident: ($bdefault:expr, $cli_name:ident, $cli_blong:literal), )* }
+            pos_flags { $( $pname:ident: ($pdefault:expr, $cli_pname:ident, $cli_plong:literal), )* }
+        ) => {
+            #[derive(Args, Debug, Clone, Default)]
+            pub struct OptionsArgs {
+                $(
+                    #[arg(long = $cli_long)]
+                    pub $name: Option<$ty>,
+                )*
+
+                $(
+                    #[arg(long = $cli_blong)]
+                    pub $cli_name: bool,
+                )*
+
+                $(
+                    #[arg(long = $cli_plong)]
+                    pub $cli_pname: bool,
+                )*
+
+                #[command(flatten)]
+                pub mutation_weights: MutationWeightsArgs,
+
+                #[arg(long, value_enum)]
+                pub output_style: Option<OutputStyleCli>,
+            }
+
+            impl OptionsArgs {
+                pub fn apply_to<T: Float, const D: usize>(&self, opt: &mut Options<T, D>) {
+                    $(
+                        if let Some(v) = self.$name {
+                            opt.$name = v;
+                        }
+                    )*
+
+                    $(
+                        if self.$cli_name {
+                            opt.$iname = false;
+                        }
+                    )*
+
+                    $(
+                        if self.$cli_pname {
+                            opt.$pname = true;
+                        }
+                    )*
+
+                    self.mutation_weights.apply_to(&mut opt.mutation_weights);
+                    if let Some(s) = self.output_style {
+                        opt.output_style = match s {
+                            OutputStyleCli::Auto => OutputStyle::Auto,
+                            OutputStyleCli::Plain => OutputStyle::Plain,
+                            OutputStyleCli::Ansi => OutputStyle::Ansi,
+                        };
+                    }
+                }
+            }
+        };
+    }
+
+    sr_options_spec!(__define_options_args);
+}
+
+#[cfg(all(test, feature = "cli"))]
+mod cli_args_tests {
+    use super::cli_args::OptionsArgs;
+    use super::Options;
+
+    #[test]
+    fn cli_options_patch_applies() {
+        let args = OptionsArgs {
+            niterations: Some(123),
+            no_progress: true,
+            ..Default::default()
+        };
+        let mut opt: Options<f64, 3> = Options::default();
+        args.apply_to(&mut opt);
+        assert_eq!(opt.niterations, 123);
+        assert!(!opt.progress);
     }
 }

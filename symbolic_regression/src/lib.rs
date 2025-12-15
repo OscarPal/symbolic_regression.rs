@@ -14,11 +14,16 @@ pub mod prelude;
 pub(crate) mod search;
 pub(crate) mod selection;
 
+#[cfg(feature = "cli")]
+pub mod cli;
+
 pub use dataset::Dataset;
 pub use hall_of_fame::HallOfFame;
+pub use loss::mse;
 pub use member::{MemberId, PopMember};
 pub use operator_library::OperatorLibrary;
 pub use operators::Operators;
+pub use options::OutputStyle;
 pub use options::{MutationWeights, Options};
 pub use search::{equation_search, SearchResult};
 

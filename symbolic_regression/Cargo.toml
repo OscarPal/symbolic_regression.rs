@@ -29,8 +29,30 @@ ndarray = "0.15"
 ndarray-rand = "0.14"
 indicatif = { version = "0.18", optional = true }
 console = { version = "0.16", optional = true }
+anyhow = { version = "1", optional = true }
+clap = { version = "4", features = ["derive"], optional = true }
+csv = { version = "1", optional = true }
+calamine = { version = "0.25", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
 
 [features]
 default = ["progress"]
 progress = ["dep:indicatif", "dep:console"]
+cli = [
+    "progress",
+    "dep:anyhow",
+    "dep:clap",
+    "dep:csv",
+    "dep:calamine",
+    "dep:serde",
+    "dep:serde_json",
+]
 [dev-dependencies]
+rust_xlsxwriter = "0.92"
+tempfile = "3"
+
+[[bin]]
+name = "symreg"
+path = "src/bin/symreg.rs"
+required-features = ["cli"]
