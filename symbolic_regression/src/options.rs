@@ -114,7 +114,7 @@ macro_rules! sr_options_spec {
             }
             pos_flags {
                 should_simplify:
-                    (false, should_simplify, "should-simplify"),
+                    (true, should_simplify, "should-simplify"),
             }
         }
     };
