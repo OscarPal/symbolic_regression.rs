@@ -63,7 +63,7 @@ vi.mock("../pkg/symbolic_regression_wasm.js", () => {
       hof_migration: true,
       use_baseline: true,
       progress: false,
-      should_simplify: false,
+      should_simplify: true,
 
       mutation_weights: {
         mutate_constant: 0.0346,

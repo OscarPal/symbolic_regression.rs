@@ -314,9 +314,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   applyPreset: (preset) =>
     set(() => {
-      const basicUnary = ["neg"];
+      // Default presets intentionally avoid unary negation ("neg") and all ternary ops.
+      // Initial load uses "basic": only +, -, *, /.
+      const basicUnary: string[] = [];
       const basicBinary = ["add", "sub", "mul", "div"];
-      const trigUnary = ["sin", "cos", "tan"];
+      const trigUnary = ["sin", "cos"];
       const explogUnary = ["exp", "log"];
 
       if (preset === "basic") return { unaryOps: basicUnary, binaryOps: basicBinary, ternaryOps: [] };

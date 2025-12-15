@@ -9,6 +9,41 @@ function formatSci(x: number): string {
   return x.toExponential(3);
 }
 
+function usePrefersDark(): boolean {
+  const get = () => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  };
+
+  const [dark, setDark] = useState(get);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => setDark(media.matches);
+    // Safari supports addListener/removeListener, modern browsers support addEventListener.
+    if (typeof media.addEventListener === "function") media.addEventListener("change", onChange);
+    else (media as any).addListener?.(onChange);
+    return () => {
+      if (typeof media.removeEventListener === "function") media.removeEventListener("change", onChange);
+      else (media as any).removeListener?.(onChange);
+    };
+  }, []);
+
+  return dark;
+}
+
+function plotLayoutBase(prefersDark: boolean) {
+  if (!prefersDark) return {};
+  return {
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(0,0,0,0)",
+    font: { color: "rgba(235,235,235,0.95)" },
+    xaxis: { gridcolor: "rgba(127,127,127,0.25)", zerolinecolor: "rgba(127,127,127,0.25)" },
+    yaxis: { gridcolor: "rgba(127,127,127,0.25)", zerolinecolor: "rgba(127,127,127,0.25)" }
+  };
+}
+
 function copyToClipboard(text: string): void {
   void navigator.clipboard.writeText(text);
 }
@@ -47,6 +82,7 @@ function sortXY(x: number[], y: number[]): { x: number[]; y: number[] } {
 type FitPlotMode = "auto" | "curve_1d" | "parity";
 
 export function SearchSolutions(): React.ReactElement {
+  const prefersDark = usePrefersDark();
   const parsed = useSessionStore((s) => s.parsed);
   const options = useSessionStore((s) => s.options);
   const csvText = useSessionStore((s) => s.csvText);
@@ -264,6 +300,7 @@ export function SearchSolutions(): React.ReactElement {
             <div className="muted">Select a solution.</div>
           ) : (
             <FitPlot
+              prefersDark={prefersDark}
               mode={effectiveFitMode}
               hasVal={Boolean(split && split.val.length > 0)}
               trainActual={trainActual}
@@ -326,10 +363,11 @@ export function SearchSolutions(): React.ReactElement {
                 } as any
               ]}
               layout={{
+                ...plotLayoutBase(prefersDark),
                 autosize: true,
                 margin: { l: 50, r: 20, t: 20, b: 50 },
-                xaxis: { title: "complexity" },
-                yaxis: { title: "loss" }
+                xaxis: { ...(plotLayoutBase(prefersDark) as any).xaxis, title: "complexity" },
+                yaxis: { ...(plotLayoutBase(prefersDark) as any).yaxis, title: "loss" }
               }}
               style={{ width: "100%", height: "100%" }}
               config={{ displayModeBar: false, responsive: true }}
@@ -348,6 +386,7 @@ export function SearchSolutions(): React.ReactElement {
 }
 
 function FitPlot(props: {
+  prefersDark: boolean;
   mode: FitPlotMode;
   hasVal: boolean;
   trainActual: number[];
@@ -401,10 +440,11 @@ function FitPlot(props: {
             : [])
         ]}
         layout={{
+          ...plotLayoutBase(props.prefersDark),
           autosize: true,
           margin: { l: 50, r: 20, t: 20, b: 50 },
-          xaxis: { title: "x" },
-          yaxis: { title: "y" }
+          xaxis: { ...(plotLayoutBase(props.prefersDark) as any).xaxis, title: "x" },
+          yaxis: { ...(plotLayoutBase(props.prefersDark) as any).yaxis, title: "y" }
         }}
         style={{ width: "100%", height: "100%" }}
         config={{ displayModeBar: false, responsive: true }}
@@ -437,10 +477,11 @@ function FitPlot(props: {
           : [])
       ]}
       layout={{
+        ...plotLayoutBase(props.prefersDark),
         autosize: true,
         margin: { l: 50, r: 20, t: 20, b: 50 },
-        xaxis: { title: "y (actual)" },
-        yaxis: { title: "ŷ (predicted)" }
+        xaxis: { ...(plotLayoutBase(props.prefersDark) as any).xaxis, title: "y (actual)" },
+        yaxis: { ...(plotLayoutBase(props.prefersDark) as any).yaxis, title: "ŷ (predicted)" }
       }}
       style={{ width: "100%", height: "100%" }}
       config={{ displayModeBar: false, responsive: true }}
