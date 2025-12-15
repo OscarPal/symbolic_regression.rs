@@ -26,7 +26,6 @@ num-traits = "0.2"
 rand = "0.9"
 rand_distr = "0.5"
 ndarray = "0.17"
-ndarray-rand = "0.16"
 indicatif = { version = "0.18", optional = true }
 console = { version = "0.16", optional = true }
 anyhow = { version = "1", optional = true }

@@ -1,6 +1,6 @@
-use ndarray::{Array1, Array2, Axis};
-use ndarray_rand::RandomExt;
-use rand_distr::StandardNormal;
+use ndarray::{Array1, Array2};
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use symbolic_regression::prelude::*;
 
 // Mirrors `SymbolicRegression.jl/example.jl`.
@@ -9,41 +9,55 @@ fn main() {
     let n_features = 5;
     let n_rows = 100;
 
-    let x: Array2<f32> = Array2::random((n_rows, n_features), StandardNormal);
-    let y: Array1<f32> = x.map_axis(Axis(1), |row| {
-        let x1 = row[0];
-        let x4 = row[3];
-        2.0 * x4.cos() + x1 * x1 - 2.0
-    });
+    let mut rng = StdRng::seed_from_u64(0);
+
+    let mut x = Array2::zeros((n_rows, n_features));
+    let mut y = Array1::zeros(n_rows);
+
+    for i in 0..n_rows {
+        for j in 0..n_features {
+            x[(i, j)] = rng.random_range(-3.0f32..3.0f32);
+        }
+        let x1 = x[(i, 1)];
+        let x4 = x[(i, 4)];
+        y[i] = 2.0 * x4.cos() + x1 * x1 - 2.0;
+    }
 
     let dataset = Dataset::new(x, y);
 
-    let operators = Operators::<2>::from_names_by_arity::<BuiltinOpsF32>(
+    const MAX_ARITY: usize = 2;
+    let operators = Operators::<MAX_ARITY>::from_names_by_arity::<BuiltinOpsF32>(
         &["cos", "exp", "sin"],
         &["+", "-", "*", "/"],
         &[],
     )
     .expect("failed to build operators");
 
-    let options = Options::<f32, 2> {
+    let options = Options::<f32, _> {
         operators,
         niterations: 200,
         ..Default::default()
     };
 
-    let result = equation_search::<f32, BuiltinOpsF32, 2>(&dataset, &options);
+    let result = equation_search::<_, BuiltinOpsF32, _>(&dataset, &options);
     let dominating = result.hall_of_fame.pareto_front();
 
-    let tree = dominating
-        .last()
-        .expect("no members on the pareto front")
-        .expr
-        .clone();
-    let _ =
-        eval_tree_array::<f32, BuiltinOpsF32, 2>(&tree, dataset.x.view(), &EvalOptions::default());
-
+    println!("Final Pareto front:");
     println!("Complexity\tMSE\tEquation");
     for member in dominating {
         println!("{}\t{}\t{}", member.complexity, member.loss, member.expr);
     }
+    // To evaluate the expression, use:
+    /*
+        let tree = dominating
+            .last()
+            .expect("no members on the pareto front")
+            .expr
+            .clone();
+        let _ = eval_tree_array::<f32, BuiltinOpsF32, 2>(
+            &tree,
+            dataset.x.view(),
+            &EvalOptions::default(),
+        );
+    */
 }
