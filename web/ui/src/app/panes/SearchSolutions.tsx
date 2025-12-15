@@ -17,9 +17,34 @@ function buildYArray(rows: number[][], yCol: number): number[] {
   return rows.map((r) => r[yCol]);
 }
 
+function buildXArray(rows: number[][], xCol: number): number[] {
+  return rows.map((r) => r[xCol]);
+}
+
 function gatherByIndices(values: number[], idx: number[]): number[] {
   return idx.map((i) => values[i]).filter((v) => Number.isFinite(v));
 }
+
+function gatherPairsByIndices(x: number[], y: number[], idx: number[]): { x: number[]; y: number[] } {
+  const xo: number[] = [];
+  const yo: number[] = [];
+  for (const i of idx) {
+    const xv = x[i];
+    const yv = y[i];
+    if (!Number.isFinite(xv) || !Number.isFinite(yv)) continue;
+    xo.push(xv);
+    yo.push(yv);
+  }
+  return { x: xo, y: yo };
+}
+
+function sortXY(x: number[], y: number[]): { x: number[]; y: number[] } {
+  const pairs = x.map((xi, i) => ({ x: xi, y: y[i] ?? NaN })).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  pairs.sort((a, b) => a.x - b.x);
+  return { x: pairs.map((p) => p.x), y: pairs.map((p) => p.y) };
+}
+
+type FitPlotMode = "auto" | "curve_1d" | "parity";
 
 export function SearchSolutions(): React.ReactElement {
   const parsed = useSessionStore((s) => s.parsed);
@@ -40,6 +65,7 @@ export function SearchSolutions(): React.ReactElement {
   const [snapshotHz, setSnapshotHz] = useState(5);
   const [paretoK, setParetoK] = useState(250);
   const [frontK, setFrontK] = useState(50);
+  const [fitMode, setFitMode] = useState<FitPlotMode>("auto");
 
   const snap = runtime.snapshot;
   const points = getParetoPoints(snap);
@@ -48,6 +74,11 @@ export function SearchSolutions(): React.ReactElement {
 
   const yCol = options?.y_column ?? (parsed ? parsed.headers.length - 1 : 0);
   const yAll = useMemo(() => (parsed ? buildYArray(parsed.rows, yCol) : []), [parsed, yCol]);
+  const xSelectedCol = options?.x_columns && options.x_columns.length > 0 ? options.x_columns[0] : null;
+  const xAll = useMemo(
+    () => (parsed && xSelectedCol != null ? buildXArray(parsed.rows, xSelectedCol) : []),
+    [parsed, xSelectedCol]
+  );
   const split = runtime.split;
 
   const evalTrain = runtime.selectedId != null ? runtime.evalByKey[`${runtime.selectedId}:train`] : undefined;
@@ -124,6 +155,18 @@ export function SearchSolutions(): React.ReactElement {
   const trainYhat = evalTrain?.yhat ?? [];
   const valYhat = evalVal?.yhat ?? [];
 
+  const canCurve1d = Boolean(options?.x_columns && options.x_columns.length === 1 && parsed);
+  const effectiveFitMode: FitPlotMode = fitMode === "auto" ? (canCurve1d ? "curve_1d" : "parity") : fitMode;
+
+  const trainXY = useMemo(() => {
+    if (!split || xAll.length === 0) return { x: [], y: [] };
+    return gatherPairsByIndices(xAll, yAll, split.train);
+  }, [split, xAll, yAll]);
+  const valXY = useMemo(() => {
+    if (!split || xAll.length === 0) return { x: [], y: [] };
+    return gatherPairsByIndices(xAll, yAll, split.val);
+  }, [split, xAll, yAll]);
+
   return (
     <div className="pane">
       <div className="card">
@@ -151,6 +194,17 @@ export function SearchSolutions(): React.ReactElement {
           <label className="field">
             <div className="label">solutions K</div>
             <input type="number" min={10} value={frontK} onChange={(e) => setFrontK(Number(e.target.value))} />
+          </label>
+
+          <label className="field">
+            <div className="label">fit plot</div>
+            <select value={fitMode} onChange={(e) => setFitMode(e.target.value as FitPlotMode)}>
+              <option value="auto">Auto</option>
+              <option value="parity">Parity (y vs ŷ)</option>
+              <option value="curve_1d" disabled={!canCurve1d}>
+                1D curve (x vs y)
+              </option>
+            </select>
           </label>
 
           <div className="statusLine">
@@ -198,37 +252,15 @@ export function SearchSolutions(): React.ReactElement {
           {!selectedSummary ? (
             <div className="muted">Select a solution.</div>
           ) : (
-            <Plot
-              data={[
-                {
-                  x: trainActual,
-                  y: trainYhat,
-                  type: "scatter",
-                  mode: "markers",
-                  name: "train",
-                  marker: { size: 6, color: "#4f7cff" }
-                },
-                ...(split && split.val.length > 0
-                  ? [
-                      {
-                        x: valActual,
-                        y: valYhat,
-                        type: "scatter",
-                        mode: "markers",
-                        name: "val",
-                        marker: { size: 6, color: "#ff7c7c" }
-                      } as any
-                    ]
-                  : [])
-              ]}
-              layout={{
-                autosize: true,
-                margin: { l: 50, r: 20, t: 20, b: 50 },
-                xaxis: { title: "y (actual)" },
-                yaxis: { title: "ŷ (predicted)" }
-              }}
-              style={{ width: "100%", height: "100%" }}
-              config={{ displayModeBar: false, responsive: true }}
+            <FitPlot
+              mode={effectiveFitMode}
+              hasVal={Boolean(split && split.val.length > 0)}
+              trainActual={trainActual}
+              valActual={valActual}
+              trainYhat={trainYhat}
+              valYhat={valYhat}
+              trainXY={trainXY}
+              valXY={valXY}
             />
           )}
         </div>
@@ -297,6 +329,107 @@ export function SearchSolutions(): React.ReactElement {
         </div>
       </div>
     </div>
+  );
+}
+
+function FitPlot(props: {
+  mode: FitPlotMode;
+  hasVal: boolean;
+  trainActual: number[];
+  valActual: number[];
+  trainYhat: number[];
+  valYhat: number[];
+  trainXY: { x: number[]; y: number[] };
+  valXY: { x: number[]; y: number[] };
+}): React.ReactElement {
+  if (props.mode === "curve_1d") {
+    const trainCurve = sortXY(props.trainXY.x, props.trainYhat);
+    const valCurve = sortXY(props.valXY.x, props.valYhat);
+    return (
+      <Plot
+        data={[
+          {
+            x: props.trainXY.x,
+            y: props.trainXY.y,
+            type: "scatter",
+            mode: "markers",
+            name: "train data",
+            marker: { size: 6, color: "#4f7cff", opacity: 0.7 }
+          },
+          {
+            x: trainCurve.x,
+            y: trainCurve.y,
+            type: "scatter",
+            mode: "lines",
+            name: "train model",
+            line: { color: "#4f7cff", width: 2 }
+          },
+          ...(props.hasVal
+            ? ([
+                {
+                  x: props.valXY.x,
+                  y: props.valXY.y,
+                  type: "scatter",
+                  mode: "markers",
+                  name: "val data",
+                  marker: { size: 6, color: "#ff7c7c", opacity: 0.7 }
+                },
+                {
+                  x: valCurve.x,
+                  y: valCurve.y,
+                  type: "scatter",
+                  mode: "lines",
+                  name: "val model",
+                  line: { color: "#ff7c7c", width: 2 }
+                }
+              ] as any[])
+            : [])
+        ]}
+        layout={{
+          autosize: true,
+          margin: { l: 50, r: 20, t: 20, b: 50 },
+          xaxis: { title: "x" },
+          yaxis: { title: "y" }
+        }}
+        style={{ width: "100%", height: "100%" }}
+        config={{ displayModeBar: false, responsive: true }}
+      />
+    );
+  }
+
+  return (
+    <Plot
+      data={[
+        {
+          x: props.trainActual,
+          y: props.trainYhat,
+          type: "scatter",
+          mode: "markers",
+          name: "train",
+          marker: { size: 6, color: "#4f7cff" }
+        },
+        ...(props.hasVal
+          ? ([
+              {
+                x: props.valActual,
+                y: props.valYhat,
+                type: "scatter",
+                mode: "markers",
+                name: "val",
+                marker: { size: 6, color: "#ff7c7c" }
+              } as any
+            ] as any[])
+          : [])
+      ]}
+      layout={{
+        autosize: true,
+        margin: { l: 50, r: 20, t: 20, b: 50 },
+        xaxis: { title: "y (actual)" },
+        yaxis: { title: "ŷ (predicted)" }
+      }}
+      style={{ width: "100%", height: "100%" }}
+      config={{ displayModeBar: false, responsive: true }}
+    />
   );
 }
 

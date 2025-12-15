@@ -1,5 +1,5 @@
 import React from "react";
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useSessionStore } from "../../state/sessionStore";
 
 function clampInt(v: number, lo: number, hi: number): number {
@@ -13,6 +13,8 @@ export function EnterData(): React.ReactElement {
   const options = useSessionStore((s) => s.options);
   const setOptionsPatch = useSessionStore((s) => s.setOptionsPatch);
   const parseCsv = useSessionStore((s) => s.parseCsv);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [dragActive, setDragActive] = useState(false);
 
   const nCols = parsed?.headers.length ?? 0;
   const colOptions = useMemo(() => {
@@ -28,6 +30,8 @@ export function EnterData(): React.ReactElement {
     if (!f) return;
     const text = await f.text();
     setCsvText(text);
+    // Convenience: auto-parse after upload to show preview immediately.
+    parseCsv();
   };
 
   return (
@@ -43,10 +47,52 @@ export function EnterData(): React.ReactElement {
             />
             has header row
           </label>
-          <input type="file" accept=".csv,text/csv" onChange={(e) => void onFile(e.target.files?.[0] ?? null)} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hiddenFileInput"
+            onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
+          />
+          <button onClick={() => fileInputRef.current?.click()}>Choose file…</button>
           <button onClick={parseCsv} disabled={!options}>
             Parse / Preview
           </button>
+        </div>
+
+        <div
+          className={dragActive ? "dropzone active" : "dropzone"}
+          onDragEnter={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setDragActive(true);
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setDragActive(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setDragActive(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setDragActive(false);
+            const f = e.dataTransfer.files?.[0] ?? null;
+            void onFile(f);
+          }}
+          onClick={() => fileInputRef.current?.click()}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
+          }}
+        >
+          <div className="dropzoneTitle">Drag & drop a CSV here</div>
+          <div className="muted">or click to choose a file</div>
         </div>
 
         <textarea className="textarea" value={csvText} onChange={(e) => setCsvText(e.target.value)} rows={10} />
@@ -175,4 +221,3 @@ export function EnterData(): React.ReactElement {
     </div>
   );
 }
-

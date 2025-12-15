@@ -272,3 +272,27 @@ select {
 .details {
   margin-top: 10px;
 }
+
+.hiddenFileInput {
+  display: none;
+}
+
+.dropzone {
+  margin: 10px 0;
+  padding: 16px 14px;
+  border-radius: 14px;
+  border: 1px dashed rgba(127, 127, 127, 0.35);
+  background: rgba(127, 127, 127, 0.04);
+  cursor: pointer;
+  user-select: none;
+}
+
+.dropzone.active {
+  border-color: rgba(79, 124, 255, 0.65);
+  background: rgba(79, 124, 255, 0.12);
+}
+
+.dropzoneTitle {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
