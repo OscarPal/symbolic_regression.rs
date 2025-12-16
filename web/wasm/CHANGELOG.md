@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.0](https://github.com/MilesCranmer/symbolic_regression.rs/compare/symbolic_regression_wasm-v0.2.0...symbolic_regression_wasm-v0.3.0) (2025-12-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* make dynamic_expressions have closer structure to DynamicExpressions.jl
+
+### Code Refactoring
+
+* make dynamic_expressions have closer structure to DynamicExpressions.jl ([80e3b31](https://github.com/MilesCranmer/symbolic_regression.rs/commit/80e3b314f9fc6ee61e8ab19fadda70ff61af689c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * symbolic_regression bumped from 0.4.0 to 0.5.0
+    * dynamic_expressions bumped from 0.4.0 to 0.5.0
+
 ## [0.2.0](https://github.com/MilesCranmer/symbolic_regression.rs/compare/symbolic_regression_wasm-v0.1.0...symbolic_regression_wasm-v0.2.0) (2025-12-16)
 
 
