@@ -1,4 +1,5 @@
 use crate::dataset::Dataset;
+use crate::dataset::TaggedDataset;
 use crate::member::{Evaluator, PopMember};
 use crate::optim::{bfgs_minimize, newton_1d_minimize, BackTracking, Objective, OptimOptions};
 use crate::options::Options;
@@ -160,15 +161,20 @@ where
 pub fn optimize_constants<T: Float + FromPrimitive + ToPrimitive, Ops, const D: usize, R: Rng>(
     rng: &mut R,
     member: &mut PopMember<T, Ops, D>,
-    dataset: &Dataset<T>,
-    options: &Options<T, D>,
-    evaluator: &mut Evaluator<T, D>,
-    grad_ctx: &mut GradContext<T, D>,
-    next_birth: &mut u64,
+    ctx: OptimizeConstantsCtx<'_, '_, T, D>,
 ) -> (bool, f64)
 where
     Ops: ScalarOpSet<T>,
 {
+    let OptimizeConstantsCtx {
+        dataset,
+        options,
+        evaluator,
+        grad_ctx,
+        next_birth,
+    } = ctx;
+    let dataset_ref: &Dataset<T> = dataset.data;
+
     if !options.should_optimize_constants {
         return (false, 0.0);
     }
@@ -189,14 +195,14 @@ where
     grad_ctx.plan = Some(member.plan.clone());
     grad_ctx.plan_nodes_len = member.expr.nodes.len();
     grad_ctx.plan_n_consts = member.expr.consts.len();
-    grad_ctx.plan_n_features = dataset.n_features;
+    grad_ctx.plan_n_features = dataset_ref.n_features;
 
-    let mut dloss_dyhat = vec![T::zero(); dataset.n_rows];
+    let mut dloss_dyhat = vec![T::zero(); dataset_ref.n_rows];
 
     let baseline = match eval_loss_only::<T, Ops, D>(
         &member.plan,
         &member.expr,
-        dataset,
+        dataset_ref,
         options,
         evaluator,
         &eval_opts,
@@ -229,7 +235,7 @@ where
         let mut obj = ConstObjective::<T, Ops, D> {
             plan: &member.plan,
             expr: &mut member.expr,
-            dataset,
+            dataset: dataset_ref,
             options,
             evaluator,
             grad_ctx,
@@ -265,7 +271,7 @@ where
         let mut obj = ConstObjective::<T, Ops, D> {
             plan: &member.plan,
             expr: &mut member.expr,
-            dataset,
+            dataset: dataset_ref,
             options,
             evaluator,
             grad_ctx,
@@ -294,7 +300,7 @@ where
         for (dst, &src) in member.expr.consts.iter_mut().zip(best_x.iter()) {
             *dst = T::from_f64(src).unwrap_or_else(T::zero);
         }
-        let ok = member.evaluate(dataset, options, evaluator);
+        let ok = member.evaluate(&dataset, options, evaluator);
         if !ok {
             member.expr.consts = orig_consts;
             member.birth = orig_birth;
@@ -313,4 +319,12 @@ where
         member.cost = orig_cost;
         (false, n_evals as f64)
     }
+}
+
+pub struct OptimizeConstantsCtx<'a, 'd, T: Float, const D: usize> {
+    pub dataset: TaggedDataset<'d, T>,
+    pub options: &'a Options<T, D>,
+    pub evaluator: &'a mut Evaluator<T, D>,
+    pub grad_ctx: &'a mut GradContext<T, D>,
+    pub next_birth: &'a mut u64,
 }

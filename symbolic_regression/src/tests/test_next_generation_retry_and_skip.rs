@@ -1,5 +1,6 @@
 use super::common::{TestOps, D, T};
 use crate::adaptive_parsimony::RunningSearchStatistics;
+use crate::dataset::TaggedDataset;
 use crate::member::{Evaluator, MemberId, PopMember};
 use crate::mutate::{next_generation, NextGenerationCtx};
 use crate::operator_library::OperatorLibrary;
@@ -57,7 +58,8 @@ fn next_generation_fails_constraints_after_retries() {
 
     let mut evaluator = Evaluator::<T, D>::new(dataset.n_rows);
     let mut member = PopMember::from_expr(MemberId(0), None, 0, leaf_expr(), dataset.n_features);
-    let _ = member.evaluate(&dataset, &options, &mut evaluator);
+    let full_dataset = TaggedDataset::new(&dataset, options.loss.as_ref(), options.use_baseline);
+    let _ = member.evaluate(&full_dataset, &options, &mut evaluator);
 
     let mut rng = StdRng::seed_from_u64(0);
     let mut stats = RunningSearchStatistics::new(options.maxsize, 1000);
@@ -69,7 +71,7 @@ fn next_generation_fails_constraints_after_retries() {
         &member,
         NextGenerationCtx {
             rng: &mut rng,
-            dataset: &dataset,
+            dataset: full_dataset,
             temperature: 1.0,
             curmaxsize: 1,
             stats: &stats,
@@ -120,6 +122,7 @@ fn reg_evol_cycle_skips_replacement_when_configured() {
     };
 
     let mut evaluator = Evaluator::<T, D>::new(dataset.n_rows);
+    let full_dataset = TaggedDataset::new(&dataset, options.loss.as_ref(), options.use_baseline);
     let member = PopMember::from_expr(MemberId(0), None, 0, leaf_expr(), dataset.n_features);
     let mut pop = Population::new(vec![member]);
 
@@ -131,7 +134,7 @@ fn reg_evol_cycle_skips_replacement_when_configured() {
     let mut next_birth = 1u64;
     let ctx = RegEvolCtx::<T, TestOps, D, _> {
         rng: &mut rng,
-        dataset: &dataset,
+        dataset: full_dataset,
         stats: &stats,
         options: &options,
         evaluator: &mut evaluator,

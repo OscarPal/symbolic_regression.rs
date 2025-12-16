@@ -1,4 +1,5 @@
-use crate::constant_optimization::optimize_constants;
+use crate::constant_optimization::{optimize_constants, OptimizeConstantsCtx};
+use crate::dataset::TaggedDataset;
 use crate::member::Evaluator;
 use crate::optim::{bfgs_minimize, BackTracking, EvalBudget, Objective, OptimOptions};
 use crate::{Dataset, MemberId, OperatorLibrary, Options, PopMember};
@@ -120,7 +121,12 @@ pub fn run_constant_opt_linear(env: &ConstantOptLinearEnv) -> (bool, f64, Vec<f6
     let mut member = PopMember::from_expr(MemberId(0), None, 0, expr, env.dataset.n_features);
     let mut evaluator = Evaluator::<T, D>::new(env.dataset.n_rows);
     let mut grad_ctx = dynamic_expressions::GradContext::<T, D>::new(env.dataset.n_rows);
-    let _ = member.evaluate(&env.dataset, &env.options, &mut evaluator);
+    let full_dataset = TaggedDataset::new(
+        &env.dataset,
+        env.options.loss.as_ref(),
+        env.options.use_baseline,
+    );
+    let _ = member.evaluate(&full_dataset, &env.options, &mut evaluator);
 
     let mut rng = StdRng::seed_from_u64(0);
     let mut next_birth = 1000u64;
@@ -128,11 +134,13 @@ pub fn run_constant_opt_linear(env: &ConstantOptLinearEnv) -> (bool, f64, Vec<f6
     let (improved, evals) = optimize_constants::<T, Ops, D, _>(
         &mut rng,
         &mut member,
-        &env.dataset,
-        &env.options,
-        &mut evaluator,
-        &mut grad_ctx,
-        &mut next_birth,
+        OptimizeConstantsCtx {
+            dataset: full_dataset,
+            options: &env.options,
+            evaluator: &mut evaluator,
+            grad_ctx: &mut grad_ctx,
+            next_birth: &mut next_birth,
+        },
     );
 
     (improved, evals, member.expr.consts.clone())

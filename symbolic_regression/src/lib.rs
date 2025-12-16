@@ -24,7 +24,9 @@ pub mod bench;
 
 pub use complexity::compute_complexity;
 pub use constraints::{NestedConstraints, OpConstraints};
+pub use dataset::{Dataset, TaggedDataset};
 pub use hall_of_fame::HallOfFame;
+pub use loss::{epsilon_insensitive, log_cosh, lp, quantile};
 pub use loss::{huber, mae, make_loss, mse, rmse, LossKind};
 pub use member::{MemberId, PopMember};
 pub use operator_library::OperatorLibrary;

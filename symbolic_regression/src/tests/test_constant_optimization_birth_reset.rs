@@ -1,5 +1,6 @@
 use super::common::{TestOps, D, T};
-use crate::constant_optimization::optimize_constants;
+use crate::constant_optimization::{optimize_constants, OptimizeConstantsCtx};
+use crate::dataset::TaggedDataset;
 use crate::member::{Evaluator, MemberId, PopMember};
 use crate::operator_library::OperatorLibrary;
 use crate::Options;
@@ -52,7 +53,8 @@ fn optimize_constants_resets_birth_on_improvement() {
     let mut member = PopMember::from_expr(MemberId(0), None, 0, expr, dataset.n_features);
     let mut evaluator = Evaluator::<T, D>::new(dataset.n_rows);
     let mut grad_ctx = dynamic_expressions::GradContext::<T, D>::new(dataset.n_rows);
-    let _ = member.evaluate(&dataset, &options, &mut evaluator);
+    let full_dataset = TaggedDataset::new(&dataset, options.loss.as_ref(), options.use_baseline);
+    let _ = member.evaluate(&full_dataset, &options, &mut evaluator);
 
     let mut rng = StdRng::seed_from_u64(0);
     let mut next_birth = 1000u64;
@@ -60,11 +62,13 @@ fn optimize_constants_resets_birth_on_improvement() {
     let (improved, _) = optimize_constants::<T, TestOps, D, _>(
         &mut rng,
         &mut member,
-        &dataset,
-        &options,
-        &mut evaluator,
-        &mut grad_ctx,
-        &mut next_birth,
+        OptimizeConstantsCtx {
+            dataset: full_dataset,
+            options: &options,
+            evaluator: &mut evaluator,
+            grad_ctx: &mut grad_ctx,
+            next_birth: &mut next_birth,
+        },
     );
     assert!(improved);
     assert_ne!(member.birth, birth_before);

@@ -1,4 +1,5 @@
-use crate::dataset::Dataset;
+use crate::complexity::compute_complexity;
+use crate::dataset::TaggedDataset;
 use crate::options::Options;
 use dynamic_expressions::compile_plan;
 use dynamic_expressions::eval_plan_array_into;
@@ -55,14 +56,16 @@ impl<T: Float, const D: usize> Evaluator<T, D> {
             scratch: Vec::new(),
         }
     }
-}
 
-fn normalization<T: Float>(dataset: &Dataset<T>) -> T {
-    let floor = T::from(0.01).unwrap();
-    if dataset.baseline_loss > floor {
-        dataset.baseline_loss
-    } else {
-        floor
+    pub fn ensure_n_rows(&mut self, n_rows: usize) {
+        if self.yhat.len() != n_rows {
+            self.yhat.resize(n_rows, T::zero());
+        }
+        for slot in &mut self.scratch {
+            if slot.len() != n_rows {
+                slot.resize(n_rows, T::zero());
+            }
+        }
     }
 }
 
@@ -96,7 +99,7 @@ where
 
     pub fn evaluate(
         &mut self,
-        dataset: &Dataset<T>,
+        dataset: &TaggedDataset<'_, T>,
         options: &Options<T, D>,
         evaluator: &mut Evaluator<T, D>,
     ) -> bool {
@@ -110,7 +113,7 @@ where
             &evaluator.eval_opts,
         );
 
-        self.complexity = self.expr.nodes.len();
+        self.complexity = compute_complexity::<T, Ops, D>(&self.expr.nodes, options);
 
         if !ok {
             self.loss = T::infinity();
@@ -132,7 +135,15 @@ where
 
         let mut cost = loss;
         if options.use_baseline {
-            cost = cost / normalization(dataset);
+            if let Some(baseline_loss) = dataset.baseline_loss {
+                let floor = T::from(0.01).unwrap();
+                let denom = if baseline_loss > floor {
+                    baseline_loss
+                } else {
+                    floor
+                };
+                cost = cost / denom;
+            }
         }
         let parsimony = T::from(options.parsimony).unwrap_or_else(T::zero);
         cost = cost + parsimony * T::from(self.complexity).unwrap();

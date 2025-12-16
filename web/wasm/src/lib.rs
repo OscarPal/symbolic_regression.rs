@@ -130,6 +130,9 @@ pub struct WasmSearchOptions {
     // Loss
     pub loss_kind: String,
     pub huber_delta: f64,
+    pub lp_p: f64,
+    pub quantile_tau: f64,
+    pub epsilon_insensitive_eps: f64,
 
     // Core options (mirrors symbolic_regression::Options fields)
     pub seed: u64,
@@ -137,6 +140,7 @@ pub struct WasmSearchOptions {
     pub populations: usize,
     pub population_size: usize,
     pub ncycles_per_iteration: usize,
+    pub batch_size: usize,
     pub complexity_of_constants: i32,
     pub complexity_of_variables: i32,
     pub maxsize: usize,
@@ -169,6 +173,7 @@ pub struct WasmSearchOptions {
     pub use_baseline: bool,
     pub progress: bool,
     pub should_simplify: bool,
+    pub batching: bool,
 
     pub mutation_weights: WasmMutationWeights,
 }
@@ -185,12 +190,16 @@ impl Default for WasmSearchOptions {
 
             loss_kind: "mse".to_string(),
             huber_delta: 1.0,
+            lp_p: 2.0,
+            quantile_tau: 0.5,
+            epsilon_insensitive_eps: 0.1,
 
             seed: o.seed,
             niterations: o.niterations,
             populations: o.populations,
             population_size: o.population_size,
             ncycles_per_iteration: o.ncycles_per_iteration,
+            batch_size: o.batch_size,
             complexity_of_constants: o.complexity_of_constants,
             complexity_of_variables: o.complexity_of_variables,
             maxsize: o.maxsize,
@@ -223,6 +232,7 @@ impl Default for WasmSearchOptions {
             use_baseline: o.use_baseline,
             progress: o.progress,
             should_simplify: o.should_simplify,
+            batching: o.batching,
 
             mutation_weights: WasmMutationWeights::default(),
         }
@@ -404,9 +414,19 @@ fn options_from_wasm(
         "huber" => LossKind::Huber {
             delta: opts.huber_delta,
         },
+        "logcosh" => LossKind::LogCosh,
+        "lp" => LossKind::Lp { p: opts.lp_p },
+        "quantile" => LossKind::Quantile {
+            tau: opts.quantile_tau,
+        },
+        "epsilon-insensitive" | "epsilon_insensitive" | "eps-insensitive" | "eps_insensitive" => {
+            LossKind::EpsilonInsensitive {
+                eps: opts.epsilon_insensitive_eps,
+            }
+        }
         other => {
             return Err(JsValue::from_str(&format!(
-                "unknown loss_kind {other:?} (expected \"mse\", \"mae\", \"rmse\", or \"huber\")"
+                "unknown loss_kind {other:?} (expected \"mse\", \"mae\", \"rmse\", \"huber\", \"logcosh\", \"lp\", \"quantile\", or \"epsilon-insensitive\")"
             )))
         }
     };
@@ -414,49 +434,56 @@ fn options_from_wasm(
     let mut mutation_weights = MutationWeights::default();
     opts.mutation_weights.apply_to(&mut mutation_weights);
 
-    Ok(Options::<f64, 3> {
-        seed: opts.seed,
-        niterations: opts.niterations,
-        populations: opts.populations,
-        population_size: opts.population_size,
-        ncycles_per_iteration: opts.ncycles_per_iteration,
-        maxsize: opts.maxsize,
-        maxdepth: opts.maxdepth,
-        warmup_maxsize_by: opts.warmup_maxsize_by,
-        parsimony: opts.parsimony,
-        adaptive_parsimony_scaling: opts.adaptive_parsimony_scaling,
-        crossover_probability: opts.crossover_probability,
-        perturbation_factor: opts.perturbation_factor,
-        probability_negate_constant: opts.probability_negate_constant,
-        tournament_selection_n: opts.tournament_selection_n,
-        tournament_selection_p: opts.tournament_selection_p,
-        alpha: opts.alpha,
-        optimizer_nrestarts: opts.optimizer_nrestarts,
-        optimizer_probability: opts.optimizer_probability,
-        optimizer_iterations: opts.optimizer_iterations,
-        optimizer_f_calls_limit: opts.optimizer_f_calls_limit,
-        fraction_replaced: opts.fraction_replaced,
-        fraction_replaced_hof: opts.fraction_replaced_hof,
-        fraction_replaced_guesses: opts.fraction_replaced_guesses,
-        topn: opts.topn,
-
-        use_frequency: opts.use_frequency,
-        use_frequency_in_tournament: opts.use_frequency_in_tournament,
-        skip_mutation_failures: opts.skip_mutation_failures,
-        annealing: opts.annealing,
-        should_optimize_constants: opts.should_optimize_constants,
-        migration: opts.migration,
-        hof_migration: opts.hof_migration,
-        use_baseline: opts.use_baseline,
-        // Keep browser output clean (and default-features disables progress anyway).
-        progress: false,
-        should_simplify: opts.should_simplify,
-
+    let mut out = Options::<f64, 3> {
         operators,
-        mutation_weights,
-        loss: symbolic_regression::make_loss::<f64>(loss_kind),
-        output_style: Default::default(),
-    })
+        ..Default::default()
+    };
+
+    out.seed = opts.seed;
+    out.niterations = opts.niterations;
+    out.populations = opts.populations;
+    out.population_size = opts.population_size;
+    out.ncycles_per_iteration = opts.ncycles_per_iteration;
+    out.batch_size = opts.batch_size;
+    out.complexity_of_constants = opts.complexity_of_constants;
+    out.complexity_of_variables = opts.complexity_of_variables;
+    out.maxsize = opts.maxsize;
+    out.maxdepth = opts.maxdepth;
+    out.warmup_maxsize_by = opts.warmup_maxsize_by;
+    out.parsimony = opts.parsimony;
+    out.adaptive_parsimony_scaling = opts.adaptive_parsimony_scaling;
+    out.crossover_probability = opts.crossover_probability;
+    out.perturbation_factor = opts.perturbation_factor;
+    out.probability_negate_constant = opts.probability_negate_constant;
+    out.tournament_selection_n = opts.tournament_selection_n;
+    out.tournament_selection_p = opts.tournament_selection_p;
+    out.alpha = opts.alpha;
+    out.optimizer_nrestarts = opts.optimizer_nrestarts;
+    out.optimizer_probability = opts.optimizer_probability;
+    out.optimizer_iterations = opts.optimizer_iterations;
+    out.optimizer_f_calls_limit = opts.optimizer_f_calls_limit;
+    out.fraction_replaced = opts.fraction_replaced;
+    out.fraction_replaced_hof = opts.fraction_replaced_hof;
+    out.fraction_replaced_guesses = opts.fraction_replaced_guesses;
+    out.topn = opts.topn;
+
+    out.use_frequency = opts.use_frequency;
+    out.use_frequency_in_tournament = opts.use_frequency_in_tournament;
+    out.skip_mutation_failures = opts.skip_mutation_failures;
+    out.annealing = opts.annealing;
+    out.should_optimize_constants = opts.should_optimize_constants;
+    out.migration = opts.migration;
+    out.hof_migration = opts.hof_migration;
+    out.use_baseline = opts.use_baseline;
+    // Keep browser output clean (and default-features disables progress anyway).
+    out.progress = false;
+    out.should_simplify = opts.should_simplify;
+    out.batching = opts.batching;
+
+    out.mutation_weights = mutation_weights;
+    out.loss = symbolic_regression::make_loss::<f64>(loss_kind);
+
+    Ok(out)
 }
 
 fn snapshot(engine: &SearchEngine<f64, BuiltinOpsF64, 3>, pareto_k: usize) -> SearchSnapshot {

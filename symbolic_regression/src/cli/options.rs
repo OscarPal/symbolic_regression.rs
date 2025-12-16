@@ -49,6 +49,7 @@ fn validate_options(opt: &crate::Options<T, D>) -> anyhow::Result<()> {
     anyhow::ensure!(opt.population_size > 0, "population_size must be > 0");
     anyhow::ensure!(opt.populations > 0, "populations must be > 0");
     anyhow::ensure!(opt.niterations > 0, "niterations must be > 0");
+    anyhow::ensure!(opt.batch_size > 0, "batch_size must be > 0");
     anyhow::ensure!(
         opt.tournament_selection_n < opt.population_size,
         "tournament_selection_n must be < population_size"

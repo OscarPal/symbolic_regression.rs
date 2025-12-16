@@ -1,5 +1,6 @@
 use crate::adaptive_parsimony::RunningSearchStatistics;
 use crate::complexity::compute_complexity;
+use crate::dataset::TaggedDataset;
 use crate::member::{Evaluator, MemberId, PopMember};
 use crate::operators::Operators;
 use crate::options::{MutationWeights, Options};
@@ -34,7 +35,7 @@ pub enum MutationChoice {
 
 pub struct NextGenerationCtx<'a, T: Float, Ops, const D: usize, R: Rng> {
     pub rng: &'a mut R,
-    pub dataset: &'a crate::dataset::Dataset<T>,
+    pub dataset: TaggedDataset<'a, T>,
     pub temperature: f64,
     pub curmaxsize: usize,
     pub stats: &'a RunningSearchStatistics,
@@ -47,7 +48,7 @@ pub struct NextGenerationCtx<'a, T: Float, Ops, const D: usize, R: Rng> {
 
 pub struct CrossoverCtx<'a, T: Float, Ops, const D: usize, R: Rng> {
     pub rng: &'a mut R,
-    pub dataset: &'a crate::dataset::Dataset<T>,
+    pub dataset: TaggedDataset<'a, T>,
     pub curmaxsize: usize,
     pub options: &'a Options<T, D>,
     pub evaluator: &'a mut Evaluator<T, D>,
@@ -919,7 +920,7 @@ where
     }
 
     let mut baby = PopMember::from_expr(id, Some(member.id), birth, tree, n_features);
-    let ok = baby.evaluate(dataset, options, evaluator);
+    let ok = baby.evaluate(&dataset, options, evaluator);
     let after_cost = baby.cost.to_f64().unwrap_or(f64::INFINITY);
     let after_loss = baby.loss.to_f64().unwrap_or(f64::INFINITY);
     let _ = after_loss;
@@ -1005,8 +1006,8 @@ where
                 PopMember::from_expr(id1, Some(member1.id), b1, c1_expr, dataset.n_features);
             let mut baby2 =
                 PopMember::from_expr(id2, Some(member2.id), b2, c2_expr, dataset.n_features);
-            let _ = baby1.evaluate(dataset, options, evaluator);
-            let _ = baby2.evaluate(dataset, options, evaluator);
+            let _ = baby1.evaluate(&dataset, options, evaluator);
+            let _ = baby2.evaluate(&dataset, options, evaluator);
             return (baby1, baby2, true, 2.0);
         }
         if tries >= max_tries {

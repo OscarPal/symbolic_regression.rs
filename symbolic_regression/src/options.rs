@@ -53,6 +53,12 @@ macro_rules! sr_options_spec {
                     (usize, 27, "population-size"),
                 ncycles_per_iteration:
                     (usize, 380, "ncycles-per-iteration"),
+                batch_size:
+                    (usize, 50, "batch-size"),
+                complexity_of_constants:
+                    (i32, 1, "complexity-of-constants"),
+                complexity_of_variables:
+                    (i32, 1, "complexity-of-variables"),
                 maxsize:
                     (usize, 30, "maxsize"),
                 maxdepth:
@@ -115,6 +121,8 @@ macro_rules! sr_options_spec {
             pos_flags {
                 should_simplify:
                     (true, should_simplify, "should-simplify"),
+                batching:
+                    (false, batching, "batching"),
             }
         }
     };
@@ -166,6 +174,14 @@ macro_rules! __define_options {
             pub loss: LossObject<T>,
 
             pub output_style: OutputStyle,
+
+            pub variable_complexities: Option<Vec<i32>>,
+            pub operator_complexity_overrides: std::collections::HashMap<
+                dynamic_expressions::operators::scalar::OpId,
+                i32,
+            >,
+            pub op_constraints: crate::constraints::OpConstraints<D>,
+            pub nested_constraints: crate::constraints::NestedConstraints,
         }
 
         impl<T: Float, const D: usize> Default for Options<T, D> {
@@ -178,6 +194,10 @@ macro_rules! __define_options {
                     mutation_weights: MutationWeights::default(),
                     loss: mse::<T>(),
                     output_style: OutputStyle::Auto,
+                    variable_complexities: None,
+                    operator_complexity_overrides: std::collections::HashMap::new(),
+                    op_constraints: Default::default(),
+                    nested_constraints: Default::default(),
                 }
             }
         }
@@ -185,6 +205,15 @@ macro_rules! __define_options {
 }
 
 sr_options_spec!(__define_options);
+
+impl<T: Float, const D: usize> Options<T, D> {
+    pub fn uses_default_complexity(&self) -> bool {
+        self.complexity_of_constants == 1
+            && self.complexity_of_variables == 1
+            && self.variable_complexities.is_none()
+            && self.operator_complexity_overrides.is_empty()
+    }
+}
 
 #[cfg(feature = "cli")]
 pub(crate) mod cli_args {

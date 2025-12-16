@@ -5,7 +5,7 @@ pub(crate) mod single_iteration;
 pub(crate) mod warmup;
 
 use crate::adaptive_parsimony::RunningSearchStatistics;
-use crate::dataset::Dataset;
+use crate::dataset::{Dataset, TaggedDataset};
 use crate::hall_of_fame::HallOfFame;
 use crate::member::{Evaluator, MemberId, PopMember};
 use crate::mutate;
@@ -70,8 +70,62 @@ pub(crate) struct PopState<T: Float, Ops, const D: usize> {
     pub(crate) evaluator: Evaluator<T, D>,
     pub(crate) grad_ctx: dynamic_expressions::GradContext<T, D>,
     pub(crate) rng: StdRng,
+    pub(crate) batch_dataset: Option<Dataset<T>>,
     pub(crate) next_id: u64,
     pub(crate) next_birth: u64,
+}
+
+impl<T: Float, Ops, const D: usize> PopState<T, Ops, D> {
+    fn run_iteration_phase<'a, F, Ret>(
+        &'a mut self,
+        full_dataset: TaggedDataset<'a, T>,
+        options: &'a Options<T, D>,
+        curmaxsize: usize,
+        stats: &'a RunningSearchStatistics,
+        f: F,
+    ) -> Ret
+    where
+        F: FnOnce(
+            &mut Population<T, Ops, D>,
+            &mut single_iteration::IterationCtx<'a, T, Ops, D, StdRng>,
+            TaggedDataset<'a, T>,
+        ) -> Ret,
+    {
+        let phase_dataset = if options.batching {
+            let full_data = full_dataset.data;
+            let bs = options.batch_size.max(1).min(full_data.n_rows.max(1));
+            let needs_new = match self.batch_dataset.as_ref() {
+                None => true,
+                Some(b) => b.n_rows != bs || b.n_features != full_data.n_features,
+            };
+            if needs_new {
+                self.batch_dataset = Some(Dataset::make_batch_buffer(full_data, bs));
+            }
+            let batch = self.batch_dataset.as_mut().expect("set above");
+            batch.resample_from(full_data, &mut self.rng);
+            TaggedDataset {
+                data: batch,
+                baseline_loss: full_dataset.baseline_loss,
+            }
+        } else {
+            full_dataset
+        };
+
+        let mut ctx = single_iteration::IterationCtx::<T, Ops, D, _> {
+            rng: &mut self.rng,
+            full_dataset,
+            curmaxsize,
+            stats,
+            options,
+            evaluator: &mut self.evaluator,
+            grad_ctx: &mut self.grad_ctx,
+            next_id: &mut self.next_id,
+            next_birth: &mut self.next_birth,
+            _ops: core::marker::PhantomData,
+        };
+
+        f(&mut self.pop, &mut ctx, phase_dataset)
+    }
 }
 
 struct PopPools<T: Float, Ops, const D: usize> {
@@ -83,7 +137,7 @@ struct PopPools<T: Float, Ops, const D: usize> {
 
 #[cfg(not(target_arch = "wasm32"))]
 struct EquationSearchState<'a, T: Float, Ops, const D: usize> {
-    dataset: &'a Dataset<T>,
+    full_dataset: TaggedDataset<'a, T>,
     options: &'a Options<T, D>,
     n_workers: usize,
     counters: SearchCounters,
@@ -133,6 +187,8 @@ where
         + Sync,
     Ops: ScalarOpSet<T> + OpNames + OpRegistry + Send + Sync,
 {
+    let full_dataset = TaggedDataset::new(dataset, options.loss.as_ref(), options.use_baseline);
+
     let counters = SearchCounters {
         total_cycles: options.niterations * options.populations,
         cycles_started: 0,
@@ -144,7 +200,7 @@ where
 
     let mut progress = SearchProgress::new(options, counters.total_cycles);
 
-    let pools = init_populations::<T, Ops, D>(dataset, options, &mut hall);
+    let pools = init_populations::<T, Ops, D>(full_dataset, options, &mut hall);
     progress.set_initial_evals(pools.total_evals);
 
     let order_rng = StdRng::seed_from_u64(options.seed ^ 0x9e37_79b9_7f4a_7c15);
@@ -156,7 +212,7 @@ where
         .max(1);
 
     let mut state = EquationSearchState {
-        dataset,
+        full_dataset,
         options,
         n_workers,
         counters,
@@ -178,6 +234,7 @@ where
 
 pub struct SearchEngine<T: Float, Ops, const D: usize> {
     dataset: Dataset<T>,
+    baseline_loss: Option<T>,
     options: Options<T, D>,
     counters: SearchCounters,
     stats: RunningSearchStatistics,
@@ -197,6 +254,11 @@ where
     Ops: ScalarOpSet<T> + OpNames + OpRegistry,
 {
     pub fn new(dataset: Dataset<T>, options: Options<T, D>) -> Self {
+        let baseline_loss = if options.use_baseline {
+            dataset.baseline_loss(options.loss.as_ref())
+        } else {
+            None
+        };
         let counters = SearchCounters {
             total_cycles: options.niterations * options.populations,
             cycles_started: 0,
@@ -208,13 +270,18 @@ where
 
         let mut progress = SearchProgress::new(&options, counters.total_cycles);
 
-        let pools = init_populations::<T, Ops, D>(&dataset, &options, &mut hall);
+        let full_dataset = TaggedDataset {
+            data: &dataset,
+            baseline_loss,
+        };
+        let pools = init_populations::<T, Ops, D>(full_dataset, &options, &mut hall);
         progress.set_initial_evals(pools.total_evals);
 
         let order_rng = StdRng::seed_from_u64(options.seed ^ 0x9e37_79b9_7f4a_7c15);
 
         Self {
             dataset,
+            baseline_loss,
             options,
             counters,
             stats,
@@ -226,6 +293,13 @@ where
             task_order: Vec::new(),
             next_task: 0,
             progress_finished: false,
+        }
+    }
+
+    fn full_dataset_tagged(&self) -> TaggedDataset<'_, T> {
+        TaggedDataset {
+            data: &self.dataset,
+            baseline_loss: self.baseline_loss,
         }
     }
 
@@ -312,8 +386,9 @@ where
         let mut stats_snapshot = self.stats.clone();
         stats_snapshot.normalize();
 
+        let full_dataset = self.full_dataset_tagged();
         let res = execute_task::<T, Ops, D>(
-            &self.dataset,
+            full_dataset,
             &self.options,
             pop_idx,
             curmaxsize,
@@ -354,7 +429,7 @@ where
 }
 
 fn execute_task<T, Ops, const D: usize>(
-    dataset: &Dataset<T>,
+    full_dataset: TaggedDataset<'_, T>,
     options: &Options<T, D>,
     pop_idx: usize,
     curmaxsize: usize,
@@ -365,21 +440,23 @@ where
     T: Float + num_traits::FromPrimitive + num_traits::ToPrimitive,
     Ops: ScalarOpSet<T> + OpRegistry,
 {
-    let mut ctx = single_iteration::IterationCtx::<T, Ops, D, _> {
-        rng: &mut pop_state.rng,
-        dataset,
-        curmaxsize,
-        stats: &stats,
+    let (evals1, best_seen) = pop_state.run_iteration_phase(
+        full_dataset,
         options,
-        evaluator: &mut pop_state.evaluator,
-        grad_ctx: &mut pop_state.grad_ctx,
-        next_id: &mut pop_state.next_id,
-        next_birth: &mut pop_state.next_birth,
-        _ops: core::marker::PhantomData,
-    };
+        curmaxsize,
+        &stats,
+        |pop, ctx, eval_dataset| single_iteration::s_r_cycle(pop, ctx, eval_dataset),
+    );
 
-    let (evals1, best_seen) = single_iteration::s_r_cycle(&mut pop_state.pop, &mut ctx);
-    let evals2 = single_iteration::optimize_and_simplify_population(&mut pop_state.pop, &mut ctx);
+    let evals2 = pop_state.run_iteration_phase(
+        full_dataset,
+        options,
+        curmaxsize,
+        &stats,
+        |pop, ctx, opt_dataset| {
+            single_iteration::optimize_and_simplify_population(pop, ctx, opt_dataset)
+        },
+    );
     let evals = (evals1.max(0.0) + evals2.max(0.0)) as u64;
 
     let best_sub_pop = migration::best_sub_pop(&pop_state.pop, options.topn);
@@ -474,7 +551,7 @@ fn run_scoped_search<'scope, 'env, T, Ops, const D: usize>(
         + Sync,
     Ops: ScalarOpSet<T> + OpNames + OpRegistry + Send + Sync + 'scope,
 {
-    let dataset = state.dataset;
+    let full_dataset = state.full_dataset;
     let options = state.options;
 
     let (result_tx, result_rx) = std::sync::mpsc::channel::<SearchTaskResult<T, Ops, D>>();
@@ -494,7 +571,12 @@ fn run_scoped_search<'scope, 'env, T, Ops, const D: usize>(
                 } = task;
 
                 let res = execute_task::<T, Ops, D>(
-                    dataset, options, pop_idx, curmaxsize, stats, pop_state,
+                    full_dataset,
+                    options,
+                    pop_idx,
+                    curmaxsize,
+                    stats,
+                    pop_state,
                 );
                 let _ = result_tx.send(res);
             }
@@ -562,7 +644,7 @@ fn run_scoped_search<'scope, 'env, T, Ops, const D: usize>(
 }
 
 fn init_populations<T, Ops, const D: usize>(
-    dataset: &Dataset<T>,
+    full_dataset: TaggedDataset<'_, T>,
     options: &Options<T, D>,
     hall: &mut HallOfFame<T, Ops, D>,
 ) -> PopPools<T, Ops, D>
@@ -570,6 +652,7 @@ where
     T: Float + num_traits::FromPrimitive + num_traits::ToPrimitive,
     Ops: ScalarOpSet<T>,
 {
+    let dataset = full_dataset.data;
     let mut total_evals: u64 = 0;
     let mut pops: Vec<Option<PopState<T, Ops, D>>> = Vec::with_capacity(options.populations);
 
@@ -600,7 +683,7 @@ where
             );
             next_id += 1;
             next_birth += 1;
-            let _ = m.evaluate(dataset, options, &mut evaluator);
+            let _ = m.evaluate(&full_dataset, options, &mut evaluator);
             total_evals += 1;
             hall.consider(&m, options, options.maxsize);
             members.push(m);
@@ -611,6 +694,7 @@ where
             evaluator,
             grad_ctx,
             rng,
+            batch_dataset: None,
             next_id,
             next_birth,
         }));

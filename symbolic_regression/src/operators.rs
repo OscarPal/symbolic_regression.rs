@@ -12,7 +12,7 @@ pub struct OpSpec {
     pub op: OpId,
     pub commutative: bool,
     pub associative: bool,
-    pub complexity: f32,
+    pub complexity: i32,
 }
 
 #[derive(Clone, Debug)]
@@ -86,6 +86,17 @@ impl<const D: usize> Operators<D> {
         (1..=max_arity).map(|a| self.nops(a)).sum()
     }
 
+    pub fn get_op_complexity(&self, op: OpId) -> Option<i32> {
+        let a = op.arity as usize;
+        if !(1..=D).contains(&a) {
+            return None;
+        }
+        self.ops_by_arity[a - 1]
+            .iter()
+            .find(|s| s.op.id == op.id)
+            .map(|s| s.complexity)
+    }
+
     pub fn sample_arity<R: Rng>(&self, rng: &mut R, max_arity: usize) -> usize {
         let max_arity = max_arity.min(D);
         let total: usize = (1..=max_arity).map(|a| self.nops(a)).sum();
@@ -133,7 +144,7 @@ impl<const D: usize> Operators<D> {
                     op: info.op,
                     commutative: info.commutative,
                     associative: info.associative,
-                    complexity: info.complexity,
+                    complexity: info.complexity.round() as i32,
                 },
             );
         }
@@ -180,7 +191,7 @@ impl<const D: usize> Operators<D> {
                         op: info.op,
                         commutative: info.commutative,
                         associative: info.associative,
-                        complexity: info.complexity,
+                        complexity: info.complexity.round() as i32,
                     },
                 );
             }
@@ -279,7 +290,7 @@ impl<Ops, const D: usize> OperatorsBuilder<Ops, D> {
                 },
                 commutative,
                 associative,
-                complexity: <Op as OpMeta<A>>::COMPLEXITY,
+                complexity: (<Op as OpMeta<A>>::COMPLEXITY).round() as i32,
             },
         );
         self

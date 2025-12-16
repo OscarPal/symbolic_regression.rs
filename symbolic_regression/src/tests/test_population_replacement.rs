@@ -1,4 +1,5 @@
 use super::common::{TestOps, D, T};
+use crate::dataset::TaggedDataset;
 use crate::member::{Evaluator, MemberId, PopMember};
 use crate::operator_library::OperatorLibrary;
 use crate::population::Population;
@@ -25,13 +26,14 @@ fn population_replaces_by_oldest_birth() {
         ..Default::default()
     };
     let mut evaluator = Evaluator::<T, D>::new(1);
+    let full_dataset = TaggedDataset::new(&dataset, options.loss.as_ref(), options.use_baseline);
 
     let mut m1 = PopMember::from_expr(MemberId(1), None, 10, leaf_expr(0), 1);
     let mut m2 = PopMember::from_expr(MemberId(2), None, 20, leaf_expr(0), 1);
     let mut m3 = PopMember::from_expr(MemberId(3), None, 30, leaf_expr(0), 1);
-    let _ = m1.evaluate(&dataset, &options, &mut evaluator);
-    let _ = m2.evaluate(&dataset, &options, &mut evaluator);
-    let _ = m3.evaluate(&dataset, &options, &mut evaluator);
+    let _ = m1.evaluate(&full_dataset, &options, &mut evaluator);
+    let _ = m2.evaluate(&full_dataset, &options, &mut evaluator);
+    let _ = m3.evaluate(&full_dataset, &options, &mut evaluator);
 
     let mut pop = Population::new(vec![m1, m2, m3]);
     assert_eq!(pop.oldest_index(), 0);

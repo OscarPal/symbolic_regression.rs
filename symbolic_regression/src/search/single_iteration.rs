@@ -1,5 +1,6 @@
 use crate::adaptive_parsimony::RunningSearchStatistics;
-use crate::constant_optimization::optimize_constants;
+use crate::constant_optimization::{optimize_constants, OptimizeConstantsCtx};
+use crate::dataset::TaggedDataset;
 use crate::hall_of_fame::HallOfFame;
 use crate::member::Evaluator;
 use crate::options::Options;
@@ -12,7 +13,7 @@ use rand::Rng;
 
 pub struct IterationCtx<'a, T: Float, Ops, const D: usize, R: Rng> {
     pub rng: &'a mut R,
-    pub dataset: &'a crate::dataset::Dataset<T>,
+    pub full_dataset: TaggedDataset<'a, T>,
     pub curmaxsize: usize,
     pub stats: &'a RunningSearchStatistics,
     pub options: &'a Options<T, D>,
@@ -26,6 +27,7 @@ pub struct IterationCtx<'a, T: Float, Ops, const D: usize, R: Rng> {
 pub fn s_r_cycle<T, Ops, const D: usize, R: Rng>(
     pop: &mut Population<T, Ops, D>,
     ctx: &mut IterationCtx<'_, T, Ops, D, R>,
+    eval_dataset: TaggedDataset<'_, T>,
 ) -> (f64, HallOfFame<T, Ops, D>)
 where
     T: Float + FromPrimitive + ToPrimitive,
@@ -49,7 +51,7 @@ where
             pop,
             RegEvolCtx {
                 rng: ctx.rng,
-                dataset: ctx.dataset,
+                dataset: eval_dataset,
                 temperature,
                 curmaxsize: ctx.curmaxsize,
                 stats: ctx.stats,
@@ -68,6 +70,7 @@ where
 pub fn optimize_and_simplify_population<T, Ops, const D: usize, R: Rng>(
     pop: &mut Population<T, Ops, D>,
     ctx: &mut IterationCtx<'_, T, Ops, D, R>,
+    opt_dataset: TaggedDataset<'_, T>,
 ) -> f64
 where
     T: Float + FromPrimitive + ToPrimitive,
@@ -82,22 +85,26 @@ where
                 &ctx.evaluator.eval_opts,
             );
             if changed {
-                m.rebuild_plan(ctx.dataset.n_features);
+                m.rebuild_plan(ctx.full_dataset.n_features);
             }
         }
     }
 
     if ctx.options.should_optimize_constants && ctx.options.optimizer_probability > 0.0 {
+        ctx.evaluator.ensure_n_rows(opt_dataset.n_rows);
+        ctx.grad_ctx.n_rows = opt_dataset.n_rows;
         for m in &mut pop.members {
             if ctx.rng.random::<f64>() < ctx.options.optimizer_probability {
                 let (improved, evals) = optimize_constants::<T, Ops, D, _>(
                     ctx.rng,
                     m,
-                    ctx.dataset,
-                    ctx.options,
-                    ctx.evaluator,
-                    ctx.grad_ctx,
-                    ctx.next_birth,
+                    OptimizeConstantsCtx {
+                        dataset: opt_dataset,
+                        options: ctx.options,
+                        evaluator: ctx.evaluator,
+                        grad_ctx: ctx.grad_ctx,
+                        next_birth: ctx.next_birth,
+                    },
                 );
                 let _ = improved;
                 num_evals += evals;
@@ -105,8 +112,9 @@ where
         }
     }
 
+    ctx.evaluator.ensure_n_rows(ctx.full_dataset.n_rows);
     for m in &mut pop.members {
-        let _ = m.evaluate(ctx.dataset, ctx.options, ctx.evaluator);
+        let _ = m.evaluate(&ctx.full_dataset, ctx.options, ctx.evaluator);
         num_evals += 1.0;
     }
 

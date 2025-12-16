@@ -1,4 +1,5 @@
 use crate::adaptive_parsimony::RunningSearchStatistics;
+use crate::dataset::TaggedDataset;
 use crate::member::Evaluator;
 use crate::mutate::{self, CrossoverCtx, NextGenerationCtx};
 use crate::options::Options;
@@ -11,7 +12,7 @@ use rand::Rng;
 
 pub struct RegEvolCtx<'a, T: Float, Ops, const D: usize, R: Rng> {
     pub rng: &'a mut R,
-    pub dataset: &'a crate::dataset::Dataset<T>,
+    pub dataset: TaggedDataset<'a, T>,
     pub temperature: f64,
     pub curmaxsize: usize,
     pub stats: &'a RunningSearchStatistics,

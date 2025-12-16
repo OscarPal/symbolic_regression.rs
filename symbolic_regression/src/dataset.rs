@@ -1,5 +1,35 @@
 use ndarray::{Array1, Array2};
 use num_traits::Float;
+use rand::Rng;
+
+use crate::loss::LossFn;
+
+#[derive(Copy, Clone, Debug)]
+pub struct TaggedDataset<'a, T: Float> {
+    pub data: &'a Dataset<T>,
+    pub baseline_loss: Option<T>,
+}
+
+impl<'a, T: Float> TaggedDataset<'a, T> {
+    pub fn new(data: &'a Dataset<T>, loss: &dyn LossFn<T>, use_baseline: bool) -> Self {
+        let baseline_loss = if use_baseline {
+            data.baseline_loss(loss)
+        } else {
+            None
+        };
+        Self {
+            data,
+            baseline_loss,
+        }
+    }
+}
+
+impl<'a, T: Float> std::ops::Deref for TaggedDataset<'a, T> {
+    type Target = Dataset<T>;
+    fn deref(&self) -> &Self::Target {
+        self.data
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct Dataset<T: Float> {
@@ -11,7 +41,8 @@ pub struct Dataset<T: Float> {
     pub n_rows: usize,
     pub weights: Option<Array1<T>>,
     pub variable_names: Vec<String>,
-    pub baseline_loss: T,
+    /// Weighted mean of `y` (or unweighted mean when no weights).
+    pub avg_y: T,
 }
 
 impl<T: Float> Dataset<T> {
@@ -20,7 +51,7 @@ impl<T: Float> Dataset<T> {
         let (n_rows, n_features) = x.dim();
         assert_eq!(y.len(), n_rows);
 
-        let baseline_loss = Self::compute_baseline_mse(y.as_slice().unwrap(), None);
+        let avg_y = Self::compute_avg_y(y.as_slice().unwrap(), None);
 
         Self {
             x,
@@ -29,7 +60,7 @@ impl<T: Float> Dataset<T> {
             n_rows,
             weights: None,
             variable_names: Vec::new(),
-            baseline_loss,
+            avg_y,
         }
     }
 
@@ -46,7 +77,7 @@ impl<T: Float> Dataset<T> {
             assert_eq!(w.len(), n_rows);
         }
 
-        let baseline_loss = Self::compute_baseline_mse(
+        let avg_y = Self::compute_avg_y(
             y.as_slice().unwrap(),
             weights.as_ref().and_then(|w| w.as_slice()),
         );
@@ -58,48 +89,88 @@ impl<T: Float> Dataset<T> {
             n_rows,
             weights,
             variable_names,
-            baseline_loss,
+            avg_y,
         }
     }
 
-    pub fn compute_baseline_mse(y: &[T], weights: Option<&[T]>) -> T {
+    pub fn y_slice(&self) -> &[T] {
+        self.y.as_slice().expect("y is contiguous")
+    }
+
+    pub fn weights_slice(&self) -> Option<&[T]> {
+        self.weights.as_ref().and_then(|w| w.as_slice())
+    }
+
+    pub fn compute_avg_y(y: &[T], weights: Option<&[T]>) -> T {
         if y.is_empty() {
             return T::zero();
         }
         match weights {
             None => {
                 let n = T::from(y.len()).unwrap();
-                let mean = y.iter().copied().fold(T::zero(), |a, b| a + b) / n;
-                y.iter()
-                    .copied()
-                    .map(|v| {
-                        let r = v - mean;
-                        r * r
-                    })
-                    .fold(T::zero(), |a, b| a + b)
-                    / n
+                y.iter().copied().fold(T::zero(), |a, b| a + b) / n
             }
             Some(w) => {
                 let sum_w = w.iter().copied().fold(T::zero(), |a, b| a + b);
                 if sum_w == T::zero() {
                     return T::zero();
                 }
-                let mean = y
-                    .iter()
+                y.iter()
                     .copied()
                     .zip(w.iter().copied())
                     .map(|(yi, wi)| yi * wi)
                     .fold(T::zero(), |a, b| a + b)
-                    / sum_w;
-                y.iter()
-                    .copied()
-                    .zip(w.iter().copied())
-                    .map(|(yi, wi)| {
-                        let r = yi - mean;
-                        wi * r * r
-                    })
-                    .fold(T::zero(), |a, b| a + b)
                     / sum_w
+            }
+        }
+    }
+
+    pub fn baseline_loss(&self, loss: &dyn LossFn<T>) -> Option<T> {
+        let base = loss.loss_const(self.avg_y, self.y_slice(), self.weights_slice());
+        if base.is_finite() {
+            Some(base)
+        } else {
+            None
+        }
+    }
+
+    pub fn make_batch_buffer(full: &Dataset<T>, batch_size: usize) -> Dataset<T> {
+        let batch_size = batch_size.max(1).min(full.n_rows.max(1));
+        let x = Array2::<T>::zeros((batch_size, full.n_features));
+        let y = Array1::<T>::zeros(batch_size);
+        let weights = full
+            .weights
+            .as_ref()
+            .map(|_| Array1::<T>::zeros(batch_size));
+        Dataset {
+            x,
+            y,
+            n_features: full.n_features,
+            n_rows: batch_size,
+            weights,
+            variable_names: full.variable_names.clone(),
+            avg_y: full.avg_y,
+        }
+    }
+
+    pub fn resample_from(&mut self, full: &Dataset<T>, rng: &mut impl Rng) {
+        assert_eq!(self.n_features, full.n_features);
+        assert_eq!(self.x.dim().0, self.n_rows);
+        assert_eq!(self.x.dim().1, self.n_features);
+        assert_eq!(self.y.len(), self.n_rows);
+        if let Some(w) = &self.weights {
+            assert_eq!(w.len(), self.n_rows);
+            assert!(full.weights.is_some());
+        } else {
+            assert!(full.weights.is_none());
+        }
+
+        for i in 0..self.n_rows {
+            let idx = rng.random_range(0..full.n_rows);
+            self.x.row_mut(i).assign(&full.x.row(idx));
+            self.y[i] = full.y[idx];
+            if let (Some(dst), Some(src)) = (self.weights.as_mut(), full.weights.as_ref()) {
+                dst[i] = src[idx];
             }
         }
     }
