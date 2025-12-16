@@ -46,7 +46,7 @@ macro_rules! sr_options_spec {
                 seed:
                     (u64, 0, "seed"),
                 niterations:
-                    (usize, 10, "niterations"),
+                    (usize, 100, "niterations"),
                 populations:
                     (usize, 31, "populations"),
                 population_size:
@@ -62,13 +62,13 @@ macro_rules! sr_options_spec {
                 maxsize:
                     (usize, 30, "maxsize"),
                 maxdepth:
-                    (usize, 10, "maxdepth"),
+                    (usize, 30, "maxdepth"),
                 warmup_maxsize_by: 
                     (f32, 0.0, "warmup-maxsize-by"),
                 parsimony:
                     (f64, 0.0, "parsimony"),
                 adaptive_parsimony_scaling:
-                    (f64, 20.0, "adaptive-parsimony-scaling"),
+                    (f64, 1040.0, "adaptive-parsimony-scaling"),
                 crossover_probability:
                     (f64, 0.0259, "crossover-probability"),
                 perturbation_factor:
