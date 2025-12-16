@@ -6,8 +6,8 @@ use crate::member::Evaluator;
 use crate::options::Options;
 use crate::population::Population;
 use crate::search::regularized_evolution::{reg_evol_cycle, RegEvolCtx};
-use dynamic_expressions::operators::scalar::ScalarOpSet;
-use dynamic_expressions::operators::OpRegistry;
+use dynamic_expressions::operator_enum::scalar::ScalarOpSet;
+use dynamic_expressions::operator_registry::OpRegistry;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 use rand::Rng;
 

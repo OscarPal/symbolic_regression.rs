@@ -1,6 +1,6 @@
 use crate::operators::{OpSpec, Operators};
-use dynamic_expressions::operators::builtin::{Add, Div, Mul, Sub};
-use dynamic_expressions::operators::scalar::{HasOp, OpId};
+use dynamic_expressions::operator_enum::builtin::{Add, Div, Mul, Sub};
+use dynamic_expressions::operator_enum::scalar::{HasOp, OpId};
 
 pub struct OperatorLibrary;
 

@@ -1,4 +1,4 @@
-use dynamic_expressions::operators::builtin::*;
+use dynamic_expressions::operator_enum::builtin::*;
 
 fn fd_unary<Op: BuiltinOp<f64, 1>>(x: f64) -> f64 {
     let eps = 1e-7;

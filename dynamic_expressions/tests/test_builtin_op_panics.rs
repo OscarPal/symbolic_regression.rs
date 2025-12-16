@@ -1,4 +1,4 @@
-use dynamic_expressions::operators::builtin::*;
+use dynamic_expressions::operator_enum::builtin::*;
 
 macro_rules! unary_bad_idx_panics {
     ($name:ident, $x:expr) => {

@@ -1,7 +1,7 @@
 use crate::cli::args::Cli;
 use crate::Operators;
 use anyhow::{bail, Context};
-use dynamic_expressions::operators::OpRegistry;
+use dynamic_expressions::operator_registry::OpRegistry;
 
 pub fn build_operators<OpsReg, const D: usize>(cli: &Cli) -> anyhow::Result<Operators<D>>
 where
@@ -40,7 +40,7 @@ where
 }
 
 pub fn print_operator_list<OpsReg: OpRegistry>() {
-    let mut by_arity: [Vec<&dynamic_expressions::operators::OpInfo>; 3] =
+    let mut by_arity: [Vec<&dynamic_expressions::operator_registry::OpInfo>; 3] =
         [Vec::new(), Vec::new(), Vec::new()];
     for info in OpsReg::registry() {
         if (1u8..=3u8).contains(&info.op.arity) {

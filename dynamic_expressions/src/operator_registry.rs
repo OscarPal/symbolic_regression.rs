@@ -1,4 +1,4 @@
-use crate::operators::scalar::OpId;
+use crate::operator_enum::scalar::OpId;
 
 #[derive(Copy, Clone, Debug)]
 pub struct OpInfo {

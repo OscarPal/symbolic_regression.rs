@@ -3,7 +3,7 @@ use crate::dataset::TaggedDataset;
 use crate::member::{Evaluator, PopMember};
 use crate::optim::{bfgs_minimize, newton_1d_minimize, BackTracking, Objective, OptimOptions};
 use crate::options::Options;
-use dynamic_expressions::operators::scalar::ScalarOpSet;
+use dynamic_expressions::operator_enum::scalar::ScalarOpSet;
 use dynamic_expressions::{eval_grad_tree_array, eval_plan_array_into, EvalOptions, GradContext};
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 use rand::Rng;
@@ -11,7 +11,7 @@ use rand_distr::Distribution;
 use rand_distr::StandardNormal;
 
 fn eval_loss_and_grad<T: Float, Ops, const D: usize>(
-    expr: &dynamic_expressions::expr::PostfixExpr<T, Ops, D>,
+    expr: &dynamic_expressions::expression::PostfixExpr<T, Ops, D>,
     dataset: &Dataset<T>,
     options: &Options<T, D>,
     grad_ctx: &mut GradContext<T, D>,
@@ -70,7 +70,7 @@ where
 
 fn eval_loss_only<T: Float, Ops, const D: usize>(
     plan: &dynamic_expressions::EvalPlan<D>,
-    expr: &dynamic_expressions::expr::PostfixExpr<T, Ops, D>,
+    expr: &dynamic_expressions::expression::PostfixExpr<T, Ops, D>,
     dataset: &Dataset<T>,
     options: &Options<T, D>,
     evaluator: &mut Evaluator<T, D>,
@@ -107,7 +107,7 @@ where
     Ops: ScalarOpSet<T>,
 {
     plan: &'a dynamic_expressions::EvalPlan<D>,
-    expr: &'a mut dynamic_expressions::expr::PostfixExpr<T, Ops, D>,
+    expr: &'a mut dynamic_expressions::expression::PostfixExpr<T, Ops, D>,
     dataset: &'a Dataset<T>,
     options: &'a Options<T, D>,
     evaluator: &'a mut Evaluator<T, D>,

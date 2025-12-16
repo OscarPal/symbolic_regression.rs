@@ -1,8 +1,8 @@
 use std::io::Cursor;
 
 use csv::ReaderBuilder;
-use dynamic_expressions::operators::presets::BuiltinOpsF64;
-use dynamic_expressions::operators::OpRegistry;
+use dynamic_expressions::operator_enum::presets::BuiltinOpsF64;
+use dynamic_expressions::operator_registry::OpRegistry;
 use dynamic_expressions::strings::{string_tree, StringTreeOptions};
 use dynamic_expressions::{eval_plan_array_into, EvalOptions};
 use ndarray::{Array1, Array2};

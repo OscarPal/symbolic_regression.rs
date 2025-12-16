@@ -1,6 +1,6 @@
 use approx::assert_relative_eq;
 use dynamic_expressions::math::cos;
-use dynamic_expressions::operators::presets::BuiltinOpsF64;
+use dynamic_expressions::operator_enum::presets::BuiltinOpsF64;
 use dynamic_expressions::{
     combine_operators_in_place, compress_constants, simplify_tree_in_place, EvalOptions, PNode,
     PostfixExpr,

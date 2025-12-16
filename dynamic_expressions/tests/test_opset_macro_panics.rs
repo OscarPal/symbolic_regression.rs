@@ -1,7 +1,7 @@
 mod common;
 
 use common::{Op1, TestOps};
-use dynamic_expressions::operators::scalar::{
+use dynamic_expressions::operator_enum::scalar::{
     DiffKernelCtx, EvalKernelCtx, GradKernelCtx, GradRef, OpId, ScalarOpSet, SrcRef,
 };
 use dynamic_expressions::strings::OpNames;

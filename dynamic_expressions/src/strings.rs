@@ -1,8 +1,9 @@
-use crate::expr::{PNode, PostfixExpr};
-use crate::operators::scalar::OpId;
+use crate::expression::PostfixExpr;
+use crate::node::PNode;
+use crate::operator_enum::scalar::OpId;
 use core::fmt;
 
-pub use crate::operators::names::OpNames;
+pub use crate::operator_enum::names::OpNames;
 
 #[derive(Clone, Debug, Default)]
 pub struct StringTreeOptions<'a> {

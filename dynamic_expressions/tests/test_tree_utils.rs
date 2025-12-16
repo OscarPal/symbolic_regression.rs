@@ -1,7 +1,7 @@
 mod common;
 
 use common::*;
-use dynamic_expressions::tree::{
+use dynamic_expressions::node_utils::{
     count_operator_nodes, count_variable_nodes, has_variables, is_leaf, is_valid_postfix, max_arity,
 };
 use dynamic_expressions::{

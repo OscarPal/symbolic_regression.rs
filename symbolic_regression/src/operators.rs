@@ -1,7 +1,7 @@
-use dynamic_expressions::operators::builtin::OpMeta;
-use dynamic_expressions::operators::builtin::{Add, Div, Mul, Sub};
-use dynamic_expressions::operators::scalar::{HasOp, OpId};
-use dynamic_expressions::operators::OpRegistry;
+use dynamic_expressions::operator_enum::builtin::OpMeta;
+use dynamic_expressions::operator_enum::builtin::{Add, Div, Mul, Sub};
+use dynamic_expressions::operator_enum::scalar::{HasOp, OpId};
+use dynamic_expressions::operator_registry::OpRegistry;
 use rand::Rng;
 use std::collections::HashSet;
 use std::fmt;
@@ -22,7 +22,7 @@ pub struct Operators<const D: usize> {
 
 #[derive(Debug, Clone)]
 pub enum OperatorSelectError {
-    Lookup(dynamic_expressions::operators::LookupError),
+    Lookup(dynamic_expressions::operator_registry::LookupError),
     ArityMismatch {
         token: String,
         expected: u8,
@@ -300,9 +300,9 @@ impl<Ops, const D: usize> OperatorsBuilder<Ops, D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dynamic_expressions::operators::builtin::{Neg, Sub};
-    use dynamic_expressions::operators::presets::BuiltinOpsF64;
-    use dynamic_expressions::operators::scalar::HasOp;
+    use dynamic_expressions::operator_enum::builtin::{Neg, Sub};
+    use dynamic_expressions::operator_enum::presets::BuiltinOpsF64;
+    use dynamic_expressions::operator_enum::scalar::HasOp;
 
     #[test]
     fn from_names_by_arity_resolves_dash_by_arity() {

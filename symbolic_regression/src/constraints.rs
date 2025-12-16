@@ -1,4 +1,4 @@
-use dynamic_expressions::operators::scalar::OpId;
+use dynamic_expressions::operator_enum::scalar::OpId;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]

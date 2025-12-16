@@ -1,5 +1,5 @@
-use dynamic_expressions::operators::builtin::Add;
-use dynamic_expressions::operators::scalar::{
+use dynamic_expressions::operator_enum::builtin::Add;
+use dynamic_expressions::operator_enum::scalar::{
     diff_apply, diff_nary, eval_apply, eval_nary, grad_apply, grad_nary, GradKernelCtx, GradRef,
     SrcRef,
 };
@@ -309,7 +309,7 @@ fn maybe_mark_nonfinite_can_early_exit() {
     });
     let mut complete = true;
     let f: fn(f64, &EvalOptions, &mut bool) -> bool =
-        dynamic_expressions::operators::scalar::__maybe_mark_nonfinite::<f64>;
+        dynamic_expressions::operator_enum::scalar::__maybe_mark_nonfinite::<f64>;
     let f = black_box(f);
     let ok = f(black_box(f64::INFINITY), &opts, &mut complete);
     assert!(!ok);
@@ -324,7 +324,7 @@ fn maybe_mark_nonfinite_marks_complete_without_early_exit() {
     });
     let mut complete = true;
     let f: fn(f64, &EvalOptions, &mut bool) -> bool =
-        dynamic_expressions::operators::scalar::__maybe_mark_nonfinite::<f64>;
+        dynamic_expressions::operator_enum::scalar::__maybe_mark_nonfinite::<f64>;
     let f = black_box(f);
     let ok = f(black_box(f64::INFINITY), &opts, &mut complete);
     assert!(ok);

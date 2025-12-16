@@ -1,6 +1,6 @@
 use crate::options::Options;
-use dynamic_expressions::expr::PNode;
-use dynamic_expressions::operators::scalar::OpId;
+use dynamic_expressions::node::PNode;
+use dynamic_expressions::operator_enum::scalar::OpId;
 use num_traits::Float;
 
 pub fn compute_complexity<T: Float, Ops, const D: usize>(

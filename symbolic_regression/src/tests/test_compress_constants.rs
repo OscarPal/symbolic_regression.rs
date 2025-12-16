@@ -1,6 +1,7 @@
 use super::common::{TestOps, D, T};
 use crate::mutate::compress_constants;
-use dynamic_expressions::expr::{Metadata, PNode, PostfixExpr};
+use dynamic_expressions::expression::{Metadata, PostfixExpr};
+use dynamic_expressions::node::PNode;
 
 #[test]
 fn compress_constants_remaps_and_shrinks_pool() {

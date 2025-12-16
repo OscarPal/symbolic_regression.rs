@@ -5,8 +5,8 @@ use crate::mutate::{self, CrossoverCtx, NextGenerationCtx};
 use crate::options::Options;
 use crate::population::Population;
 use crate::selection::best_of_sample;
-use dynamic_expressions::operators::scalar::ScalarOpSet;
-use dynamic_expressions::operators::OpRegistry;
+use dynamic_expressions::operator_enum::scalar::ScalarOpSet;
+use dynamic_expressions::operator_registry::OpRegistry;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 use rand::Rng;
 

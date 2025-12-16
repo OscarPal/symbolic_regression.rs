@@ -4,7 +4,7 @@ use clap::Parser;
 
 type T = f64;
 const D: usize = 3;
-type Ops = dynamic_expressions::operators::presets::BuiltinOpsF64;
+type Ops = dynamic_expressions::operator_enum::presets::BuiltinOpsF64;
 
 pub fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();

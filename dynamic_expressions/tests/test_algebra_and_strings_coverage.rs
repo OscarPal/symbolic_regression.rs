@@ -2,7 +2,7 @@ mod common;
 
 use approx::assert_relative_eq;
 use common::{make_x, TestOps};
-use dynamic_expressions::operators::scalar::OpId;
+use dynamic_expressions::operator_enum::scalar::OpId;
 use dynamic_expressions::strings::{string_tree, OpNames, StringTreeOptions};
 use dynamic_expressions::{eval_tree_array, lit, EvalOptions};
 

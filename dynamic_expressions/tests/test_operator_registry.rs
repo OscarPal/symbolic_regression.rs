@@ -1,5 +1,5 @@
-use dynamic_expressions::operators::presets::BuiltinOpsF64;
-use dynamic_expressions::operators::OpRegistry;
+use dynamic_expressions::operator_enum::presets::BuiltinOpsF64;
+use dynamic_expressions::operator_registry::OpRegistry;
 
 #[test]
 fn lookup_prefers_binary_sub_for_dash() {

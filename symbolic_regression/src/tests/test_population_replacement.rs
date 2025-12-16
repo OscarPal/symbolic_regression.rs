@@ -4,7 +4,8 @@ use crate::member::{Evaluator, MemberId, PopMember};
 use crate::operator_library::OperatorLibrary;
 use crate::population::Population;
 use crate::Options;
-use dynamic_expressions::expr::{Metadata, PNode, PostfixExpr};
+use dynamic_expressions::expression::{Metadata, PostfixExpr};
+use dynamic_expressions::node::PNode;
 use ndarray::{Array1, Array2};
 
 fn leaf_expr(feature: u16) -> PostfixExpr<T, TestOps, D> {

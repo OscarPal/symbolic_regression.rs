@@ -1,6 +1,7 @@
-use crate::expr::{Metadata, PNode, PostfixExpr};
-use crate::operators::builtin::{Add, Div, Mul, Neg, Sub};
-use crate::operators::scalar::HasOp;
+use crate::expression::{Metadata, PostfixExpr};
+use crate::node::PNode;
+use crate::operator_enum::builtin::{Add, Div, Mul, Neg, Sub};
+use crate::operator_enum::scalar::HasOp;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Lit<T>(pub T);

@@ -1,4 +1,4 @@
-use dynamic_expressions::operators::scalar::{
+use dynamic_expressions::operator_enum::scalar::{
     DiffKernelCtx, EvalKernelCtx, GradKernelCtx, OpId, ScalarOpSet, SrcRef,
 };
 use dynamic_expressions::strings::OpNames;
@@ -66,7 +66,10 @@ fn var(feature: u16) -> PostfixExpr<f64, FnOps, 2> {
 }
 
 fn cos_expr(x: PostfixExpr<f64, FnOps, 2>) -> PostfixExpr<f64, FnOps, 2> {
-    dynamic_expressions::algebra::__apply_postfix::<f64, FnOps, 2, 1>(Op1::Cos as u16, [x])
+    dynamic_expressions::expression_algebra::__apply_postfix::<f64, FnOps, 2, 1>(
+        Op1::Cos as u16,
+        [x],
+    )
 }
 
 fn c(value: f64) -> PostfixExpr<f64, FnOps, 2> {
@@ -226,7 +229,7 @@ fn define_scalar_ops_grad_panics_on_unknown_id() {
     let mut out_val = [0.0f64];
     let mut out_grad = [0.0f64];
     let args = [SrcRef::Const(0.0)];
-    let arg_grads = [dynamic_expressions::operators::scalar::GradRef::Zero];
+    let arg_grads = [dynamic_expressions::operator_enum::scalar::GradRef::Zero];
     let opts = EvalOptions::default();
     <FnOps as ScalarOpSet<f64>>::grad(
         OpId { arity: 1, id: 999 },
@@ -268,7 +271,7 @@ fn define_scalar_ops_grad_panics_on_unsupported_arity() {
     let mut out_val = [0.0f64];
     let mut out_grad = [0.0f64];
     let args = [SrcRef::Const(0.0)];
-    let arg_grads = [dynamic_expressions::operators::scalar::GradRef::Zero];
+    let arg_grads = [dynamic_expressions::operator_enum::scalar::GradRef::Zero];
     let opts = EvalOptions::default();
     <FnOps as ScalarOpSet<f64>>::grad(
         OpId { arity: 9, id: 0 },

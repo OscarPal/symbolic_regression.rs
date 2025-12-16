@@ -1,4 +1,4 @@
-use dynamic_expressions::operators::scalar::{
+use dynamic_expressions::operator_enum::scalar::{
     diff_nary, grad_nary, GradKernelCtx, GradRef, SrcRef,
 };
 use dynamic_expressions::EvalOptions;

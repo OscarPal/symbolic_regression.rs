@@ -1,7 +1,8 @@
-use crate::eval::EvalOptions;
-use crate::expr::{PNode, PostfixExpr};
-use crate::operators::registry::OpRegistry;
-use crate::operators::scalar::{EvalKernelCtx, OpId, ScalarOpSet, SrcRef};
+use crate::evaluate::EvalOptions;
+use crate::expression::PostfixExpr;
+use crate::node::PNode;
+use crate::operator_enum::scalar::{EvalKernelCtx, OpId, ScalarOpSet, SrcRef};
+use crate::operator_registry::OpRegistry;
 use crate::utils::compress_constants;
 use num_traits::Float;
 
