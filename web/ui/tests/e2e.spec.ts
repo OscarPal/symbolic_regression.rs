@@ -7,16 +7,15 @@ test("loads real WASM + worker and can run a tiny search", async ({ page }) => {
 
   await page.goto("/");
 
-  // Wait for WASM init in the header.
-  await expect(page.getByText("WASM ready")).toBeVisible();
+  // Wait for WASM init (options become available and enable parsing).
+  await expect(page.getByTestId("parse-preview")).toBeEnabled();
 
   // Parse the default CSV so plots can use local parsed data too.
-  await page.getByRole("button", { name: "Enter Data" }).click();
+  await page.getByRole("button", { name: "Data" }).click();
   await page.getByTestId("parse-preview").click();
 
   // Shrink search budget so CI stays fast.
-  await page.getByRole("button", { name: "Modeling Task" }).click();
-  await page.getByTestId("opt-niterations").fill("1");
+  await page.getByRole("button", { name: "Configure" }).click();
 
   // Expand Advanced hyperparameters section to access fields inside.
   await page.getByText("Advanced hyperparameters").click();
@@ -26,7 +25,11 @@ test("loads real WASM + worker and can run a tiny search", async ({ page }) => {
   await page.getByTestId("opt-ncycles").fill("20");
 
   // Run search.
-  await page.getByRole("button", { name: "Search + Solutions" }).click();
+  await page.getByRole("button", { name: "Run" }).click();
+
+  // Shrink iterations right before initialize (options apply at init time).
+  await page.getByTestId("opt-niterations").fill("1");
+
   await page.getByTestId("search-init").click();
   await expect(page.getByTestId("search-status")).toHaveText("ready");
 
@@ -48,4 +51,3 @@ test("loads real WASM + worker and can run a tiny search", async ({ page }) => {
   await expect(page.getByTestId("selected-equation")).toBeVisible();
   await expect(page.getByTestId("no-metrics")).toHaveCount(0);
 });
-

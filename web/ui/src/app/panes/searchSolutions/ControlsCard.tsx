@@ -42,6 +42,7 @@ export function ControlsCard(props: {
             step={1}
             value={props.niterations ?? 1}
             className="itersInput"
+            data-testid="opt-niterations"
             disabled={!props.canEditNiterations || props.niterations == null}
             onChange={(e) => props.setNiterations(Number(e.target.value))}
           />
