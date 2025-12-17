@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.0](https://github.com/MilesCranmer/symbolic_regression.rs/compare/symbolic_regression_wasm-v0.3.0...symbolic_regression_wasm-v0.4.0) (2025-12-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* string format x{} is now 0-indexed
+
+### Bug Fixes
+
+* string format x{} is now 0-indexed ([9001971](https://github.com/MilesCranmer/symbolic_regression.rs/commit/9001971498bd5796a5b10c2f03e27f52c5535409))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * symbolic_regression bumped from 0.5.0 to 0.6.0
+    * dynamic_expressions bumped from 0.5.0 to 0.6.0
+
 ## [0.3.0](https://github.com/MilesCranmer/symbolic_regression.rs/compare/symbolic_regression_wasm-v0.2.0...symbolic_regression_wasm-v0.3.0) (2025-12-16)
 
 
