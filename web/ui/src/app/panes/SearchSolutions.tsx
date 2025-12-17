@@ -19,6 +19,7 @@ export function SearchSolutions(): React.ReactElement {
         status={c.runtime.status}
         error={c.runtime.error}
         snap={c.snap}
+        cyclesPerSecond={c.runtime.cyclesPerSecond}
         fitMode={c.fitMode}
         setFitMode={c.setFitMode}
         canCurve1d={c.canCurve1d}

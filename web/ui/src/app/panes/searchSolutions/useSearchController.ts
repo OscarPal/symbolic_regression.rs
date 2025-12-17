@@ -70,6 +70,9 @@ export function useSearchController(Client: { new (): SrWorkerClientLike }) {
 
   const clientRef = useRef<SrWorkerClientLike | null>(null);
   const [fitMode, setFitMode] = useState<FitPlotMode>("auto");
+  const lastSnapTimeRef = useRef<number | null>(null);
+  const lastCyclesRef = useRef<number | null>(null);
+  const cpsEmaRef = useRef<number | null>(null);
 
   const snap = runtime.snapshot;
   const points = getParetoPoints(snap);
@@ -97,7 +100,27 @@ export function useSearchController(Client: { new (): SrWorkerClientLike }) {
         setRuntime({ status: "ready", error: null, split: splitMaybe as WasmSplitIndices });
       },
       onSnapshot: (snapMaybe) => {
-        setSnapshot(snapMaybe as SearchSnapshot);
+        const s = snapMaybe as SearchSnapshot;
+        setSnapshot(s);
+
+        const now = performance.now();
+        const prevT = lastSnapTimeRef.current;
+        const prevC = lastCyclesRef.current;
+
+        if (prevT != null && prevC != null) {
+          const dt = (now - prevT) / 1000;
+          const dc = s.cycles_completed - prevC;
+          if (dt > 0 && dc >= 0) {
+            const cps = dc / dt;
+            const emaPrev = cpsEmaRef.current;
+            const ema = emaPrev == null ? cps : 0.2 * cps + 0.8 * emaPrev;
+            cpsEmaRef.current = ema;
+            setRuntime({ cyclesPerSecond: ema });
+          }
+        }
+
+        lastSnapTimeRef.current = now;
+        lastCyclesRef.current = s.cycles_completed;
       },
       onFrontUpdate: (frontMaybe) => {
         setFront(frontMaybe as EquationSummary[]);
@@ -117,6 +140,7 @@ export function useSearchController(Client: { new (): SrWorkerClientLike }) {
           status: "idle",
           split: null,
           snapshot: null,
+          cyclesPerSecond: null,
           front: [],
           selectedId: null,
           selectedComplexity: null,
@@ -137,11 +161,15 @@ export function useSearchController(Client: { new (): SrWorkerClientLike }) {
       error: null,
       split: null,
       snapshot: null,
+      cyclesPerSecond: null,
       front: [],
       selectedId: null,
       selectedComplexity: null,
       evalByKey: {}
     });
+    lastSnapTimeRef.current = null;
+    lastCyclesRef.current = null;
+    cpsEmaRef.current = null;
     clientRef.current.init({
       csvText,
       options,

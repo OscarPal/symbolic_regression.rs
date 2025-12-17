@@ -8,4 +8,3 @@ ReactDOM.createRoot(document.querySelector<HTMLDivElement>("#app")!).render(
     <App />
   </React.StrictMode>
 );
-

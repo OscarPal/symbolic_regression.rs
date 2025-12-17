@@ -7,6 +7,7 @@ export function ControlsCard(props: {
   status: string;
   error: string | null;
   snap: SearchSnapshot | null;
+  cyclesPerSecond: number | null;
 
   fitMode: FitPlotMode;
   setFitMode: (m: FitPlotMode) => void;
@@ -53,6 +54,7 @@ export function ControlsCard(props: {
               cycles {props.snap.cycles_completed}/{props.snap.total_cycles} (
               {props.snap.total_cycles > 0 ? ((100 * props.snap.cycles_completed) / props.snap.total_cycles).toFixed(1) : "0"}%), evals=
               {props.snap.total_evals}
+              {props.cyclesPerSecond != null ? `, ${props.cyclesPerSecond.toFixed(1)} cyc/s` : ""}
             </span>
           )}
         </div>
