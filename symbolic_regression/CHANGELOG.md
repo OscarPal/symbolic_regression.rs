@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.6.0](https://github.com/MilesCranmer/symbolic_regression.rs/compare/symbolic_regression-v0.5.0...symbolic_regression-v0.6.0) (2025-12-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* string format x{} is now 0-indexed
+
+### Bug Fixes
+
+* clippy warnings ([2e98667](https://github.com/MilesCranmer/symbolic_regression.rs/commit/2e98667b914877485e76813112eebea08fd99921))
+* clippy warnings ([dc189d5](https://github.com/MilesCranmer/symbolic_regression.rs/commit/dc189d5261a8f31e442b09bbe75a95714d0dcefa))
+* string format x{} is now 0-indexed ([9001971](https://github.com/MilesCranmer/symbolic_regression.rs/commit/9001971498bd5796a5b10c2f03e27f52c5535409))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * dynamic_expressions bumped from 0.5.0 to 0.6.0
+
 ## [0.5.0](https://github.com/MilesCranmer/symbolic_regression.rs/compare/symbolic_regression-v0.4.0...symbolic_regression-v0.5.0) (2025-12-16)
 
 
