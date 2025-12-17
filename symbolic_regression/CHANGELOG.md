@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.5.0](https://github.com/MilesCranmer/symbolic_regression.rs/compare/symbolic_regression-v0.4.0...symbolic_regression-v0.5.0) (2025-12-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* set defaults back to SR.jl standard
+* change symbolic regression structure to match julia layout
+* make dynamic_expressions have closer structure to DynamicExpressions.jl
+
+### Features
+
+* better alignment to SymbolicRegression.jl cost/loss difference ([0b978ec](https://github.com/MilesCranmer/symbolic_regression.rs/commit/0b978ecfd99b304e857d1654bac46f910c484e5d))
+* set defaults back to SR.jl standard ([4926893](https://github.com/MilesCranmer/symbolic_regression.rs/commit/4926893b1fe0fb43f2baad1ff1fe5f2952ec1791))
+
+
+### Code Refactoring
+
+* change symbolic regression structure to match julia layout ([0c0e4d7](https://github.com/MilesCranmer/symbolic_regression.rs/commit/0c0e4d7ba9f93bdc13c56cd403498a477a6010a0))
+* make dynamic_expressions have closer structure to DynamicExpressions.jl ([80e3b31](https://github.com/MilesCranmer/symbolic_regression.rs/commit/80e3b314f9fc6ee61e8ab19fadda70ff61af689c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * dynamic_expressions bumped from 0.4.0 to 0.5.0
+
 ## [0.4.0](https://github.com/MilesCranmer/symbolic_regression.rs/compare/symbolic_regression-v0.3.0...symbolic_regression-v0.4.0) (2025-12-16)
 
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/MilesCranmer/symbolic_regression.rs/compare/dynamic_expressions-v0.4.0...dynamic_expressions-v0.5.0) (2025-12-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* make dynamic_expressions have closer structure to DynamicExpressions.jl
+
+### Code Refactoring
+
+* make dynamic_expressions have closer structure to DynamicExpressions.jl ([80e3b31](https://github.com/MilesCranmer/symbolic_regression.rs/commit/80e3b314f9fc6ee61e8ab19fadda70ff61af689c))
+
 ## [0.4.0](https://github.com/MilesCranmer/symbolic_regression.rs/compare/dynamic_expressions-v0.3.0...dynamic_expressions-v0.4.0) (2025-12-16)
 
 
