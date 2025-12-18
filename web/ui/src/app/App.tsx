@@ -35,6 +35,22 @@ export function App(): React.ReactElement {
             Run
           </button>
         </div>
+        <nav className="topbarLinks" aria-label="Project links">
+          <a
+            className="topbarLink"
+            href="https://github.com/astroautomata/symbolic_regression.rs"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub
+          </a>
+          <span className="topbarLinkSep" aria-hidden="true">
+            ·
+          </span>
+          <a className="topbarLink" href="https://arxiv.org/abs/2305.01582" target="_blank" rel="noreferrer">
+            arXiv
+          </a>
+        </nav>
       </header>
 
       <main className="main">

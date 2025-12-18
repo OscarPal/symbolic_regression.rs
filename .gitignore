@@ -16,3 +16,4 @@ Cargo.lock
 **/package-lock.json
 !web/ui/package-lock.json
 web/ui/src/generated/defaultCsv.ts
+**/.playwright-browsers/**

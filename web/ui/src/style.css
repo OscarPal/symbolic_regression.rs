@@ -35,6 +35,37 @@ body {
   white-space: nowrap;
 }
 
+.topbarLinks {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.topbarLink {
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.9;
+}
+
+.topbarLink:hover {
+  text-decoration: underline;
+  opacity: 1;
+}
+
+.topbarLink:focus-visible {
+  outline: 2px solid rgba(79, 124, 255, 0.8);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.topbarLinkSep {
+  opacity: 0.5;
+  user-select: none;
+}
+
 .tabs {
   display: flex;
   gap: 8px;
