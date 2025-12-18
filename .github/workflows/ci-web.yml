@@ -12,6 +12,8 @@ on:
       - Cargo.toml
       - Cargo.lock
       - .github/workflows/ci-web.yml
+      - .github/workflows/pages-build.yml
+      - .github/workflows/pages-deploy.yml
   push:
     branches:
       - main
@@ -23,6 +25,8 @@ on:
       - Cargo.toml
       - Cargo.lock
       - .github/workflows/ci-web.yml
+      - .github/workflows/pages-build.yml
+      - .github/workflows/pages-deploy.yml
   workflow_dispatch:
 
 concurrency:
