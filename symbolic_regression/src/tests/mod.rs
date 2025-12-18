@@ -6,5 +6,6 @@ mod test_cost_normalization;
 mod test_equation_search_runs;
 mod test_frequency_in_tournament;
 mod test_loss;
+mod test_mutation_regressions;
 mod test_next_generation_retry_and_skip;
 mod test_population_replacement;
