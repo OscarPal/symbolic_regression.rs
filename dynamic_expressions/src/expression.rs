@@ -34,6 +34,18 @@ impl<T, Ops, const D: usize> PostfixExpr<T, Ops, D> {
             _ops: PhantomData,
         }
     }
+
+    /// Construct a zero-valued constant expression.
+    pub fn zero() -> Self
+    where
+        T: num_traits::Zero,
+    {
+        Self::new(
+            vec![PNode::Const { idx: 0 }],
+            vec![T::zero()],
+            Metadata::default(),
+        )
+    }
 }
 
 pub trait PostfixExpression<const D: usize> {
