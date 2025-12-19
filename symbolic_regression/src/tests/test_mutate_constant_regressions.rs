@@ -13,9 +13,11 @@ fn constant_mutation_is_bounded_with_floor_at_zero_temperature() {
         vec![1.0],
         Metadata::default(),
     );
-    let mut options: Options<f64, 2> = Options::default();
-    options.probability_negate_constant = 1.0; // `rand() > 1.0` never, so no sign flip.
-    options.perturbation_factor = 123.0; // irrelevant at temperature=0.
+    let options: Options<f64, 2> = Options {
+        probability_negate_constant: 1.0, // `rand() > 1.0` never, so no sign flip.
+        perturbation_factor: 123.0, // irrelevant at temperature=0.
+        ..Default::default()
+    };
 
     let mut rng = StdRng::seed_from_u64(0);
     for _ in 0..256 {
@@ -24,7 +26,7 @@ fn constant_mutation_is_bounded_with_floor_at_zero_temperature() {
         let after = expr.consts[0];
         let ratio = after / before;
         assert!(
-            (1.0 / 1.1) - 1e-12 <= ratio && ratio <= 1.1 + 1e-12,
+            ((1.0 / 1.1) - 1e-12..=1.1 + 1e-12).contains(&ratio),
             "ratio={ratio} out of bounds at temperature=0"
         );
     }
@@ -37,8 +39,10 @@ fn constant_mutation_uses_inverted_sign_flip_probability() {
         vec![1.0],
         Metadata::default(),
     );
-    let mut options: Options<f64, 2> = Options::default();
-    options.probability_negate_constant = 0.0; // `rand() > 0.0` should negate almost always.
+    let options: Options<f64, 2> = Options {
+        probability_negate_constant: 0.0, // `rand() > 0.0` should negate almost always.
+        ..Default::default()
+    };
 
     let mut rng = StdRng::seed_from_u64(1);
     let mut saw_negative = false;
