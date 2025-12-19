@@ -1,7 +1,7 @@
 use crate::pop_member::{MemberId, PopMember};
 use crate::population::Population;
 use num_traits::Float;
-use rand::seq::{IndexedRandom, SliceRandom};
+use rand::seq::IndexedRandom;
 use rand::Rng;
 use rand_distr::{Distribution, Poisson};
 use std::cmp::Ordering;
@@ -49,16 +49,13 @@ pub fn migrate_into<T: Float, Ops, const D: usize, R: Rng + ?Sized>(
 
     let mean = (dst.len() as f64) * frac;
     let mut n_replace = poisson_sample(rng, mean);
-    n_replace = n_replace.min(dst.len());
+    n_replace = n_replace.min(dst.len()).min(migrants.len());
     if n_replace == 0 {
         return;
     }
 
-    let mut locs: Vec<usize> = (0..dst.len()).collect();
-    locs.shuffle(rng);
-    locs.truncate(n_replace);
-
-    for loc in locs {
+    for _ in 0..n_replace {
+        let loc = rng.random_range(0..dst.len());
         let src = migrants.choose(rng).expect("migrants is non-empty");
         let mut m = src.clone();
         m.parent = Some(src.id);
