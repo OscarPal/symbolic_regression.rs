@@ -45,7 +45,7 @@ jobs:
       - name: Install Rust (rustfmt + clippy)
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly-2024-12-12
           components: rustfmt, clippy
 
       - name: Rust cache
@@ -73,7 +73,7 @@ jobs:
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly-2024-12-12
           target: wasm32-unknown-unknown
 
       - name: Rust cache
@@ -85,6 +85,8 @@ jobs:
           tool: wasm-pack
 
       - name: Build WASM package for web/ui
+        env:
+          RUSTFLAGS: -C target-feature=+atomics,+bulk-memory,+mutable-globals
         run: |
           cd web/wasm
           wasm-pack build --no-opt --target web --out-dir ../ui/src/pkg

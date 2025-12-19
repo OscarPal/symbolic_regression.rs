@@ -153,6 +153,7 @@ struct MutationOutcome<T: Float, Ops, const D: usize> {
 }
 
 impl MutationChoice {
+    #[allow(clippy::too_many_arguments)]
     fn apply<
         T: Float + num_traits::FromPrimitive + num_traits::ToPrimitive,
         Ops,
