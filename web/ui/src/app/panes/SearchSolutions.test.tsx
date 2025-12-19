@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { SearchSolutions } from "./SearchSolutions";
 import { useSessionStore } from "../../state/sessionStore";
 import type { SearchSnapshot, WasmSplitIndices } from "../../types/srTypes";
@@ -131,6 +131,57 @@ function setCommonState(args: { xColumns: number[] }) {
 }
 
 describe("SearchSolutions fit plot", () => {
+  it("auto-parses CSV for fit plots even if Data->Parse/Preview was never clicked", async () => {
+    const split: WasmSplitIndices = { train: [0, 1, 2], val: [] };
+    const snap: SearchSnapshot = {
+      total_cycles: 10,
+      cycles_completed: 1,
+      total_evals: 0,
+      best: { id: "1", complexity: 3, loss: 0.1, cost: 0.1, equation: "x" },
+      pareto_points: [{ id: "1", complexity: 3, loss: 0.1, cost: 0.1 }]
+    };
+
+    useSessionStore.setState({
+      csvText: "x,y\n0,1\n1,3\n2,5\n",
+      parsed: null,
+      options: { has_headers: true, x_columns: [0], y_column: 1, weights_column: null, validation_fraction: 0, niterations: 10 } as any,
+      runtime: {
+        status: "ready",
+        error: null,
+        split,
+        snapshot: snap,
+        evalsPerSecond: null,
+        front: [{ id: "1", complexity: 3, loss: 0.1, cost: 0.1, equation: "x" }],
+        selectedId: "1",
+        selectedComplexity: 3,
+        evalByKey: {
+          "1:train": {
+            metrics: {
+              n: 3,
+              mse: 0.0,
+              mae: 0.0,
+              rmse: 0.0,
+              r2: 1.0,
+              corr: 1.0,
+              min_abs_err: 0.0,
+              max_abs_err: 0.0
+            },
+            yhat: [1, 3, 5]
+          }
+        }
+      } as any
+    });
+
+    render(<SearchSolutions />);
+
+    await waitFor(() => {
+      const plot = screen.getByTestId("plot-x-x");
+      const payload = JSON.parse(plot.getAttribute("data-props") ?? "{}");
+      expect((payload.data?.[0]?.x ?? []).length).toBeGreaterThan(0);
+      expect((payload.data?.[0]?.y ?? []).length).toBeGreaterThan(0);
+    });
+  });
+
   it("auto mode uses 1D curve when exactly one X column is selected", () => {
     setCommonState({ xColumns: [0] });
     render(<SearchSolutions />);

@@ -52,6 +52,7 @@ type SessionState = {
   loadWasmMetadata: () => Promise<void>;
   setCsvText: (csvText: string) => void;
   parseCsv: () => void;
+  ensureParsedForRuntime: () => boolean;
   setOptionsPatch: (patch: Partial<WasmSearchOptions>) => void;
 
   toggleOp: (arity: 1 | 2 | 3, name: string) => void;
@@ -70,6 +71,42 @@ function keyForEval(memberId: string, which: "train" | "val"): string {
 
 function toggleInList(list: string[], value: string): string[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+}
+
+function parseCsvText(args: { csvText: string; hasHeaders: boolean }): { ok: true; parsed: ParsedDataset } | { ok: false; error: string } {
+  const res = Papa.parse(args.csvText, {
+    skipEmptyLines: true,
+    dynamicTyping: true
+  });
+  if (res.errors.length > 0) return { ok: false, error: res.errors[0]?.message ?? "CSV parse error" };
+
+  const raw = res.data as unknown[];
+  if (raw.length === 0) return { ok: false, error: "empty CSV" };
+
+  let headers: string[] = [];
+  let dataRows: unknown[] = raw;
+  if (args.hasHeaders) {
+    const h0 = raw[0] as unknown;
+    if (!Array.isArray(h0)) return { ok: false, error: "expected header row to be an array" };
+    headers = h0.map((v) => String(v));
+    dataRows = raw.slice(1);
+  }
+
+  const rows: number[][] = [];
+  for (const r of dataRows) {
+    if (!Array.isArray(r)) continue;
+    const row = r.map((v) => Number(v));
+    if (row.some((v) => !Number.isFinite(v))) continue;
+    rows.push(row);
+  }
+  if (rows.length === 0) return { ok: false, error: "no numeric data rows parsed" };
+
+  const nCols = rows[0].length;
+  if (headers.length !== nCols) {
+    headers = Array.from({ length: nCols }, (_, i) => `col_${i}`);
+  }
+
+  return { ok: true, parsed: { headers, rows } };
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -125,52 +162,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const { csvText, options } = get();
     if (!options) return;
 
-    const res = Papa.parse(csvText, {
-      skipEmptyLines: true,
-      dynamicTyping: true
-    });
-    if (res.errors.length > 0) {
-      set((s) => ({
-        runtime: { ...s.runtime, status: "error", error: res.errors[0]?.message ?? "CSV parse error" }
-      }));
+    const parsedRes = parseCsvText({ csvText, hasHeaders: Boolean(options.has_headers) });
+    if (!parsedRes.ok) {
+      set((s) => ({ runtime: { ...s.runtime, status: "error", error: parsedRes.error } }));
       return;
     }
-
-    const raw = res.data as unknown[];
-    if (raw.length === 0) return;
-
-    let headers: string[] = [];
-    let dataRows: unknown[] = raw;
-    if (options.has_headers) {
-      const h0 = raw[0] as unknown;
-      if (!Array.isArray(h0)) {
-        set((s) => ({
-          runtime: { ...s.runtime, status: "error", error: "expected header row to be an array" }
-        }));
-        return;
-      }
-      headers = h0.map((v) => String(v));
-      dataRows = raw.slice(1);
-    }
-
-    const rows: number[][] = [];
-    for (const r of dataRows) {
-      if (!Array.isArray(r)) continue;
-      const row = r.map((v) => Number(v));
-      if (row.some((v) => !Number.isFinite(v))) continue;
-      rows.push(row);
-    }
-    if (rows.length === 0) {
-      set((s) => ({
-        runtime: { ...s.runtime, status: "error", error: "no numeric data rows parsed" }
-      }));
-      return;
-    }
-
-    const nCols = rows[0].length;
-    if (headers.length !== nCols) {
-      headers = Array.from({ length: nCols }, (_, i) => `col_${i}`);
-    }
+    const { headers, rows } = parsedRes.parsed;
+    const nCols = rows[0]?.length ?? 0;
 
     // Defaults: y is last col, X is all others.
     const y = options.y_column ?? (nCols - 1);
@@ -180,7 +178,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       Array.from({ length: nCols }, (_, i) => i).filter((i) => i !== y && i !== weights);
 
     set({
-      parsed: { headers, rows },
+      parsed: parsedRes.parsed,
       options: {
         ...options,
         y_column: y,
@@ -188,6 +186,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         x_columns: x
       }
     });
+  },
+
+  ensureParsedForRuntime: () => {
+    const { parsed, csvText, options } = get();
+    if (parsed) return true;
+    if (!options) return false;
+    const parsedRes = parseCsvText({ csvText, hasHeaders: Boolean(options.has_headers) });
+    if (!parsedRes.ok) {
+      set((s) => ({ runtime: { ...s.runtime, status: "error", error: parsedRes.error } }));
+      return false;
+    }
+    set({ parsed: parsedRes.parsed });
+    return true;
   },
 
   setOptionsPatch: (patch) =>

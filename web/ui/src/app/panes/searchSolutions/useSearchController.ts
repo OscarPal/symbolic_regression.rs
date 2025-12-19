@@ -57,6 +57,7 @@ export function useSearchController(Client: { new (): SrWorkerClientLike }) {
   const parsed = useSessionStore((s) => s.parsed);
   const options = useSessionStore((s) => s.options);
   const csvText = useSessionStore((s) => s.csvText);
+  const ensureParsedForRuntime = useSessionStore((s) => s.ensureParsedForRuntime);
   const unaryOps = useSessionStore((s) => s.unaryOps);
   const binaryOps = useSessionStore((s) => s.binaryOps);
   const ternaryOps = useSessionStore((s) => s.ternaryOps);
@@ -93,6 +94,14 @@ export function useSearchController(Client: { new (): SrWorkerClientLike }) {
 
   const evalTrain = runtime.selectedId != null ? runtime.evalByKey[`${runtime.selectedId}:train`] : undefined;
   const evalVal = runtime.selectedId != null ? runtime.evalByKey[`${runtime.selectedId}:val`] : undefined;
+
+  useEffect(() => {
+    if (parsed) return;
+    if (!options) return;
+    if (!csvText.trim()) return;
+    if (runtime.status === "idle" || runtime.status === "initializing" || runtime.status === "error") return;
+    ensureParsedForRuntime();
+  }, [parsed, options, csvText, runtime.status, ensureParsedForRuntime]);
 
   useEffect(() => {
     const c = new Client();
