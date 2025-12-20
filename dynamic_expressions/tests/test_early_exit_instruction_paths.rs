@@ -15,7 +15,7 @@ fn diff_early_exit_can_trigger_inside_instruction_loop() {
         early_exit: true,
     };
 
-    let mut ctx = DiffContext::<f64, 3>::new(x_view.nrows());
+    let mut ctx = DiffContext::<f64, 3>::new(x_view.ncols());
     let (eval, der, ok) =
         eval_diff_tree_array::<f64, TestOps, 3>(&expr, x_view, 0, &mut ctx, &opts);
     assert!(!ok);
@@ -33,7 +33,7 @@ fn grad_early_exit_can_trigger_inside_instruction_loop() {
         early_exit: true,
     };
 
-    let mut ctx = GradContext::<f64, 3>::new(x_view.nrows());
+    let mut ctx = GradContext::<f64, 3>::new(x_view.ncols());
     let (eval, grad, ok) =
         eval_grad_tree_array::<f64, TestOps, 3>(&expr, x_view, true, &mut ctx, &opts);
     assert!(!ok);

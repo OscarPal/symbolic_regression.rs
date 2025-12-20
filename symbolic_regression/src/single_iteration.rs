@@ -11,7 +11,7 @@ use dynamic_expressions::operator_registry::OpRegistry;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 use rand::Rng;
 
-pub struct IterationCtx<'a, T: Float, Ops, const D: usize, R: Rng> {
+pub struct IterationCtx<'a, T: Float + std::ops::AddAssign, Ops, const D: usize, R: Rng> {
     pub rng: &'a mut R,
     pub full_dataset: TaggedDataset<'a, T>,
     pub curmaxsize: usize,
@@ -30,7 +30,7 @@ pub fn s_r_cycle<T, Ops, const D: usize, R: Rng>(
     eval_dataset: TaggedDataset<'_, T>,
 ) -> (f64, HallOfFame<T, Ops, D>)
 where
-    T: Float + FromPrimitive + ToPrimitive,
+    T: Float + FromPrimitive + ToPrimitive + std::ops::AddAssign,
     Ops: ScalarOpSet<T> + OpRegistry,
 {
     let max_temp = 1.0;
@@ -73,7 +73,7 @@ pub fn optimize_and_simplify_population<T, Ops, const D: usize, R: Rng>(
     opt_dataset: TaggedDataset<'_, T>,
 ) -> f64
 where
-    T: Float + FromPrimitive + ToPrimitive,
+    T: Float + FromPrimitive + ToPrimitive + std::ops::AddAssign,
     Ops: ScalarOpSet<T> + OpRegistry,
 {
     let mut num_evals = 0.0;

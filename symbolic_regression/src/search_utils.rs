@@ -16,7 +16,7 @@ use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
 
-pub struct SearchResult<T: Float, Ops, const D: usize> {
+pub struct SearchResult<T: Float + std::ops::AddAssign, Ops, const D: usize> {
     pub hall_of_fame: HallOfFame<T, Ops, D>,
     pub best: PopMember<T, Ops, D>,
 }
@@ -45,14 +45,14 @@ impl SearchCounters {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-struct SearchTask<T: Float, Ops, const D: usize> {
+struct SearchTask<T: Float + std::ops::AddAssign, Ops, const D: usize> {
     pop_idx: usize,
     curmaxsize: usize,
     stats: RunningSearchStatistics,
     pop_state: PopState<T, Ops, D>,
 }
 
-struct SearchTaskResult<T: Float, Ops, const D: usize> {
+struct SearchTaskResult<T: Float + std::ops::AddAssign, Ops, const D: usize> {
     pop_idx: usize,
     curmaxsize: usize,
     evals: u64,
@@ -61,7 +61,7 @@ struct SearchTaskResult<T: Float, Ops, const D: usize> {
     pop_state: PopState<T, Ops, D>,
 }
 
-pub(crate) struct PopState<T: Float, Ops, const D: usize> {
+pub(crate) struct PopState<T: Float + std::ops::AddAssign, Ops, const D: usize> {
     pub(crate) pop: Population<T, Ops, D>,
     pub(crate) evaluator: Evaluator<T, D>,
     pub(crate) grad_ctx: dynamic_expressions::GradContext<T, D>,
@@ -71,7 +71,7 @@ pub(crate) struct PopState<T: Float, Ops, const D: usize> {
     pub(crate) next_birth: u64,
 }
 
-impl<T: Float, Ops, const D: usize> PopState<T, Ops, D> {
+impl<T: Float + std::ops::AddAssign, Ops, const D: usize> PopState<T, Ops, D> {
     fn run_iteration_phase<'a, F, Ret>(
         &'a mut self,
         full_dataset: TaggedDataset<'a, T>,
@@ -127,7 +127,7 @@ impl<T: Float, Ops, const D: usize> PopState<T, Ops, D> {
     }
 }
 
-struct PopPools<T: Float, Ops, const D: usize> {
+struct PopPools<T: Float + std::ops::AddAssign, Ops, const D: usize> {
     pops: Vec<Option<PopState<T, Ops, D>>>,
     best_sub_pops: Vec<Vec<PopMember<T, Ops, D>>>,
     best: PopMember<T, Ops, D>,
@@ -135,7 +135,7 @@ struct PopPools<T: Float, Ops, const D: usize> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-struct EquationSearchState<'a, T: Float, Ops, const D: usize> {
+struct EquationSearchState<'a, T: Float + std::ops::AddAssign, Ops, const D: usize> {
     full_dataset: TaggedDataset<'a, T>,
     options: &'a Options<T, D>,
     n_workers: usize,
@@ -153,6 +153,7 @@ pub fn equation_search<T, Ops, const D: usize>(
 ) -> SearchResult<T, Ops, D>
 where
     T: Float
+        + std::ops::AddAssign
         + num_traits::FromPrimitive
         + num_traits::ToPrimitive
         + std::fmt::Display
@@ -179,6 +180,7 @@ pub fn equation_search_parallel<T, Ops, const D: usize>(
 ) -> SearchResult<T, Ops, D>
 where
     T: Float
+        + std::ops::AddAssign
         + num_traits::FromPrimitive
         + num_traits::ToPrimitive
         + std::fmt::Display
@@ -236,7 +238,7 @@ where
     }
 }
 
-pub struct SearchEngine<T: Float, Ops, const D: usize> {
+pub struct SearchEngine<T: Float + std::ops::AddAssign, Ops, const D: usize> {
     dataset: Dataset<T>,
     baseline_loss: Option<T>,
     options: Options<T, D>,
@@ -254,7 +256,11 @@ pub struct SearchEngine<T: Float, Ops, const D: usize> {
 
 impl<T, Ops, const D: usize> SearchEngine<T, Ops, D>
 where
-    T: Float + num_traits::FromPrimitive + num_traits::ToPrimitive + std::fmt::Display,
+    T: Float
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + std::fmt::Display
+        + std::ops::AddAssign,
     Ops: ScalarOpSet<T> + OpNames + OpRegistry,
 {
     pub fn new(dataset: Dataset<T>, options: Options<T, D>) -> Self {
@@ -435,7 +441,7 @@ fn execute_task<T, Ops, const D: usize>(
     mut pop_state: PopState<T, Ops, D>,
 ) -> SearchTaskResult<T, Ops, D>
 where
-    T: Float + num_traits::FromPrimitive + num_traits::ToPrimitive,
+    T: Float + num_traits::FromPrimitive + num_traits::ToPrimitive + std::ops::AddAssign,
     Ops: ScalarOpSet<T> + OpRegistry,
 {
     let (evals1, best_seen) = pop_state.run_iteration_phase(
@@ -478,7 +484,11 @@ fn apply_task_result<T, Ops, const D: usize>(
     pools: &mut PopPools<T, Ops, D>,
     res: SearchTaskResult<T, Ops, D>,
 ) where
-    T: Float + num_traits::FromPrimitive + num_traits::ToPrimitive + std::fmt::Display,
+    T: Float
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + std::fmt::Display
+        + std::ops::AddAssign,
     Ops: ScalarOpSet<T> + OpNames,
 {
     pools.total_evals = pools.total_evals.saturating_add(res.evals);
@@ -542,6 +552,7 @@ fn run_scoped_search<'scope, 'env, T, Ops, const D: usize>(
     state: &mut EquationSearchState<'env, T, Ops, D>,
 ) where
     T: Float
+        + std::ops::AddAssign
         + num_traits::FromPrimitive
         + num_traits::ToPrimitive
         + std::fmt::Display
@@ -641,7 +652,7 @@ fn init_populations<T, Ops, const D: usize>(
     hall: &mut HallOfFame<T, Ops, D>,
 ) -> PopPools<T, Ops, D>
 where
-    T: Float + num_traits::FromPrimitive + num_traits::ToPrimitive,
+    T: Float + num_traits::FromPrimitive + num_traits::ToPrimitive + std::ops::AddAssign,
     Ops: ScalarOpSet<T>,
 {
     let dataset = full_dataset.data;

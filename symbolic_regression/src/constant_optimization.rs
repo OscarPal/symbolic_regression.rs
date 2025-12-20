@@ -10,7 +10,7 @@ use rand::Rng;
 use rand_distr::Distribution;
 use rand_distr::StandardNormal;
 
-fn eval_loss_and_grad<T: Float, Ops, const D: usize>(
+fn eval_loss_and_grad<T: Float + std::ops::AddAssign, Ops, const D: usize>(
     expr: &dynamic_expressions::expression::PostfixExpr<T, Ops, D>,
     dataset: &Dataset<T>,
     options: &Options<T, D>,
@@ -116,8 +116,8 @@ where
     dloss_dyhat: &'a mut [T],
 }
 
-impl<'a, T: Float + FromPrimitive + ToPrimitive, Ops, const D: usize> Objective
-    for ConstObjective<'a, T, Ops, D>
+impl<'a, T: Float + FromPrimitive + ToPrimitive + std::ops::AddAssign, Ops, const D: usize>
+    Objective for ConstObjective<'a, T, Ops, D>
 where
     Ops: ScalarOpSet<T>,
 {
@@ -158,7 +158,12 @@ where
     }
 }
 
-pub fn optimize_constants<T: Float + FromPrimitive + ToPrimitive, Ops, const D: usize, R: Rng>(
+pub fn optimize_constants<
+    T: Float + FromPrimitive + ToPrimitive + std::ops::AddAssign,
+    Ops,
+    const D: usize,
+    R: Rng,
+>(
     rng: &mut R,
     member: &mut PopMember<T, Ops, D>,
     ctx: OptimizeConstantsCtx<'_, '_, T, D>,

@@ -24,12 +24,12 @@ fn build_expr() -> PostfixExpr<f64, ReadmeOps, 2> {
 }
 
 fn eval_naive(expr: &PostfixExpr<f64, ReadmeOps, 2>, x: ndarray::ArrayView2<'_, f64>) -> Vec<f64> {
-    let n_rows = x.nrows();
+    let n_rows = x.ncols();
     let mut out = vec![0.0f64; n_rows];
 
     for row in 0..n_rows {
-        let x1 = x[(row, 0)];
-        let x2 = x[(row, 1)];
+        let x1 = x[(0, row)];
+        let x2 = x[(1, row)];
         let mut stack: Vec<f64> = Vec::with_capacity(expr.nodes.len());
         for node in &expr.nodes {
             match *node {
@@ -67,12 +67,12 @@ fn bench_readme_like(c: &mut Criterion) {
     let n_features = 2usize;
     let n_rows = 100usize;
     let mut data = vec![0.0f64; n_features * n_rows];
-    for row in 0..n_rows {
-        for feature in 0..n_features {
-            data[row * n_features + feature] = (row as f64 + 1.0) * (feature as f64 + 1.0) * 0.001;
+    for feature in 0..n_features {
+        for row in 0..n_rows {
+            data[feature * n_rows + row] = (row as f64 + 1.0) * (feature as f64 + 1.0) * 0.001;
         }
     }
-    let x = Array2::from_shape_vec((n_rows, n_features), data).unwrap();
+    let x = Array2::from_shape_vec((n_features, n_rows), data).unwrap();
     let x_data = x.as_slice().unwrap();
     let x_view = x.view();
     let expr = build_expr();
@@ -91,8 +91,8 @@ fn bench_readme_like(c: &mut Criterion) {
         b.iter(|| {
             let mut out = vec![0.0f64; n_rows];
             for row in 0..n_rows {
-                let x1 = x_data[row * n_features];
-                let x2 = x_data[row * n_features + 1];
+                let x1 = x_data[row];
+                let x2 = x_data[n_rows + row];
                 out[row] = x1 * (x2 - 3.2).cos();
             }
             out
@@ -105,8 +105,8 @@ fn bench_readme_like(c: &mut Criterion) {
             let mut out = vec![0.0f64; n_rows];
             b.iter(|| {
                 for row in 0..n_rows {
-                    let x1 = x_data[row * n_features];
-                    let x2 = x_data[row * n_features + 1];
+                    let x1 = x_data[row];
+                    let x2 = x_data[n_rows + row];
                     out[row] = x1 * (x2 - 3.2).cos();
                 }
             })

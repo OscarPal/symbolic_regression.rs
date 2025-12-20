@@ -33,7 +33,7 @@ pub enum MutationChoice {
     Optimize,
 }
 
-pub struct NextGenerationCtx<'a, T: Float, Ops, const D: usize, R: Rng> {
+pub struct NextGenerationCtx<'a, T: Float + std::ops::AddAssign, Ops, const D: usize, R: Rng> {
     pub rng: &'a mut R,
     pub dataset: TaggedDataset<'a, T>,
     pub temperature: f64,
@@ -70,7 +70,7 @@ fn has_binary_op(nodes: &[PNode]) -> bool {
         .any(|n| matches!(n, PNode::Op { arity: 2, .. }))
 }
 
-pub fn condition_mutation_weights<T: Float, Ops, const D: usize>(
+pub fn condition_mutation_weights<T: Float + std::ops::AddAssign, Ops, const D: usize>(
     weights: &mut MutationWeights,
     member: &PopMember<T, Ops, D>,
     options: &Options<T, D>,
@@ -145,14 +145,14 @@ pub fn sample_mutation<R: Rng>(rng: &mut R, weights: &MutationWeights) -> Mutati
     choices[dist.sample(rng)].0
 }
 
-struct MutationOutcome<T: Float, Ops, const D: usize> {
+struct MutationOutcome<T: Float + std::ops::AddAssign, Ops, const D: usize> {
     expr: PostfixExpr<T, Ops, D>,
     mutated: bool,
     evals: f64,
     return_immediately: bool,
 }
 
-struct MutationApplyCtx<'a, 'd, T: Float, Ops, const D: usize, R: Rng> {
+struct MutationApplyCtx<'a, 'd, T: Float + std::ops::AddAssign, Ops, const D: usize, R: Rng> {
     rng: &'a mut R,
     member: &'a PopMember<T, Ops, D>,
     expr: PostfixExpr<T, Ops, D>,
@@ -165,7 +165,7 @@ struct MutationApplyCtx<'a, 'd, T: Float, Ops, const D: usize, R: Rng> {
 
 impl MutationChoice {
     fn apply<
-        T: Float + num_traits::FromPrimitive + num_traits::ToPrimitive,
+        T: Float + num_traits::FromPrimitive + num_traits::ToPrimitive + std::ops::AddAssign,
         Ops,
         const D: usize,
         R: Rng,
@@ -326,7 +326,7 @@ impl MutationChoice {
 }
 
 pub fn next_generation<
-    T: Float + num_traits::FromPrimitive + num_traits::ToPrimitive,
+    T: Float + num_traits::FromPrimitive + num_traits::ToPrimitive + std::ops::AddAssign,
     Ops,
     const D: usize,
     R: Rng,
@@ -465,7 +465,7 @@ where
     (baby, true, evals)
 }
 
-pub fn crossover_generation<T: Float, Ops, const D: usize, R: Rng>(
+pub fn crossover_generation<T: Float + std::ops::AddAssign, Ops, const D: usize, R: Rng>(
     member1: &PopMember<T, Ops, D>,
     member2: &PopMember<T, Ops, D>,
     ctx: CrossoverCtx<'_, T, Ops, D, R>,

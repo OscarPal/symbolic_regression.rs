@@ -10,7 +10,7 @@ use dynamic_expressions::operator_registry::OpRegistry;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 use rand::Rng;
 
-pub struct RegEvolCtx<'a, T: Float, Ops, const D: usize, R: Rng> {
+pub struct RegEvolCtx<'a, T: Float + std::ops::AddAssign, Ops, const D: usize, R: Rng> {
     pub rng: &'a mut R,
     pub dataset: TaggedDataset<'a, T>,
     pub temperature: f64,
@@ -28,7 +28,7 @@ pub fn reg_evol_cycle<T, Ops, const D: usize, R: Rng>(
     ctx: RegEvolCtx<'_, T, Ops, D, R>,
 ) -> f64
 where
-    T: Float + FromPrimitive + ToPrimitive,
+    T: Float + FromPrimitive + ToPrimitive + std::ops::AddAssign,
     Ops: ScalarOpSet<T> + OpRegistry,
 {
     let mut num_evals = 0.0;
