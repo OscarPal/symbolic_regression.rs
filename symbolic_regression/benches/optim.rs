@@ -1,175 +1,377 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use dynamic_expressions::PostfixExpression;
+use core::marker::PhantomData;
+
+use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use dynamic_expressions::operator_enum::builtin::{Add, Cos, Div, Sin, Sub};
+use dynamic_expressions::operator_enum::presets::BuiltinOpsF32;
+use dynamic_expressions::operator_enum::scalar::{HasOp, OpId};
 use ndarray::{Array1, Array2};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
-use std::time::Duration;
-use symbolic_regression::compute_complexity;
-use symbolic_regression::{check_constraints, equation_search, optimize_constants, PopMember};
-use symbolic_regression::{Dataset, MutationWeights, OperatorLibrary, Options};
+use rand_distr::StandardNormal;
+use symbolic_regression::{
+    best_of_sample, check_constraints, equation_search, insert_random_op_in_place, next_generation,
+    optimize_constants, random_expr, rotate_tree_in_place, Dataset, Evaluator, MemberId,
+    NextGenerationCtx, Operators, OptimizeConstantsCtx, Options, PopMember, Population,
+    RunningSearchStatistics, TaggedDataset,
+};
 
 type T = f32;
 const D: usize = 3;
-type Ops = dynamic_expressions::operator_enum::presets::BuiltinOpsF32;
-const N_FEATURES: usize = 5;
+type Ops = BuiltinOpsF32;
+const POP_SIZE: usize = 100;
 
-fn make_options(seed: u64) -> Options<T, D> {
-    let mutation_weights = MutationWeights {
-        swap_operands: 0.0,
-        form_connection: 0.0,
-        break_connection: 0.0,
-        ..Default::default()
-    };
-
-    Options {
-        seed,
-        niterations: 15,
-        populations: 1,
-        population_size: 64,
-        ncycles_per_iteration: 380,
-        batch_size: 50,
-        maxsize: 30,
-        maxdepth: 30,
-        parsimony: 0.0,
-        perturbation_factor: 0.129,
-        probability_negate_constant: 0.00743,
-        tournament_selection_n: 15,
-        tournament_selection_p: 1.0,
-        crossover_probability: 0.0259,
-        mutation_weights,
-        operators: OperatorLibrary::sr_default::<Ops, D>(),
-        progress: false,
-        ..Default::default()
-    }
+fn make_ops_search() -> Operators<D> {
+    Operators::<D>::from_names_by_arity::<Ops>(&["exp", "abs"], &["+", "-", "*", "/"], &[])
+        .expect("search operators")
 }
 
-fn make_dataset(seed: u64) -> (Dataset<T>, Vec<T>) {
-    let n = 1_000usize;
-    let n_features = 5usize;
+fn make_ops_utils() -> Operators<D> {
+    Operators::<D>::from_names_by_arity::<Ops>(&["sin", "cos"], &["+", "-", "*", "/"], &[])
+        .expect("utils operators")
+}
+
+fn make_search_options(seed: u64) -> Options<T, D> {
+    let mut options = Options::<T, D>::default();
+    options.seed = seed;
+    options.niterations = 30;
+    options.populations = 1;
+    options.population_size = 64;
+    options.operators = make_ops_search();
+    options.progress = false;
+    options.mutation_weights.swap_operands = 0.0;
+    options.mutation_weights.form_connection = 0.0;
+    options.mutation_weights.break_connection = 0.0;
+    options
+}
+
+fn make_utils_options() -> Options<T, D> {
+    let mut options = Options::<T, D>::default();
+    options.operators = make_ops_utils();
+    options.progress = false;
+    options
+}
+
+fn make_dataset(seed: u64, n_rows: usize, n_features: usize) -> Dataset<T> {
     let mut rng = StdRng::seed_from_u64(seed);
-    let mut x: Vec<T> = Vec::with_capacity(n * n_features);
-    for _ in 0..n * n_features {
-        x.push(rng.random_range(-5.0f32..5.0f32) as T);
+    let mut x: Vec<T> = Vec::with_capacity(n_rows * n_features);
+    for _ in 0..n_rows * n_features {
+        x.push(rng.random_range(-5.0f32..5.0f32));
     }
-    let x_arr = Array2::from_shape_vec((n, n_features), x).unwrap();
+    let x_arr = Array2::from_shape_vec((n_rows, n_features), x).unwrap();
 
     let eqn = |row: &[T]| -> T {
-        let a = (2.13f32 as T * row[0]).cos();
-        let b = row[1] * row[2].abs().powf(0.9f32 as T) * (0.5f32 as T);
-        let c = row[3].abs().powf(1.5f32 as T) * (0.3f32 as T);
+        let a = (2.13f32 * row[0]).cos();
+        let b = row[1] * row[2].abs().powf(0.9f32) * 0.5f32;
+        let c = row[3].abs().powf(1.5f32) * 0.3f32;
         a + b - c
     };
 
-    let mut y = Vec::with_capacity(n);
-    for r in 0..n {
+    let mut y = Vec::with_capacity(n_rows);
+    for r in 0..n_rows {
         let row = x_arr.row(r);
-        y.push(eqn(row.as_slice().unwrap()) + (0.1f32 as T) * rng.random_range(-1.0f32..1.0f32));
+        let noise: f32 = rng.sample(StandardNormal);
+        y.push(eqn(row.as_slice().unwrap()) + 0.1f32 * noise);
     }
 
-    (Dataset::new(x_arr, Array1::from_vec(y.clone())), y)
+    Dataset::new(x_arr, Array1::from_vec(y))
+}
+
+fn make_random_dataset(seed: u64, n_rows: usize, n_features: usize) -> Dataset<T> {
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut x: Vec<T> = Vec::with_capacity(n_rows * n_features);
+    for _ in 0..n_rows * n_features {
+        let v: f32 = rng.sample(StandardNormal);
+        x.push(v);
+    }
+    let mut y = Vec::with_capacity(n_rows);
+    for _ in 0..n_rows {
+        let v: f32 = rng.sample(StandardNormal);
+        y.push(v);
+    }
+    Dataset::new(
+        Array2::from_shape_vec((n_rows, n_features), x).unwrap(),
+        Array1::from_vec(y),
+    )
+}
+
+fn make_population(
+    seed: u64,
+    dataset: &Dataset<T>,
+    options: &Options<T, D>,
+    pop_size: usize,
+    tree_size: usize,
+) -> (Population<T, Ops, D>, RunningSearchStatistics) {
+    let mut rng = StdRng::seed_from_u64(seed);
+    let tagged = TaggedDataset::new(dataset, None);
+    let mut evaluator = Evaluator::new(dataset.n_rows);
+
+    let mut members = Vec::with_capacity(pop_size);
+    for i in 0..pop_size {
+        let expr = random_expr::<T, Ops, D, _>(
+            &mut rng,
+            &options.operators,
+            dataset.n_features,
+            tree_size,
+        );
+        let mut member =
+            PopMember::from_expr(MemberId(i as u64), None, i as u64, expr, dataset.n_features);
+        let _ = member.evaluate(&tagged, options, &mut evaluator);
+        members.push(member);
+    }
+
+    let mut stats = RunningSearchStatistics::new(options.maxsize, 100_000);
+    stats.update_from_population(members.iter().map(|m| m.complexity));
+    stats.normalize();
+
+    (Population::new(members), stats)
 }
 
 fn bench_search(c: &mut Criterion) {
-    let seeds = [1u64];
+    let seeds = [1u64, 2, 3];
+    let datasets: Vec<_> = seeds
+        .iter()
+        .map(|&seed| make_dataset(seed, 1_000, 5))
+        .collect();
+    let options: Vec<_> = seeds
+        .iter()
+        .map(|&seed| make_search_options(seed))
+        .collect();
+
     let mut group = c.benchmark_group("search");
     group.sample_size(10);
-    group.measurement_time(Duration::from_secs(2));
-    group.warm_up_time(Duration::from_secs(1));
-    for &seed in &seeds {
-        let (dataset, _) = make_dataset(seed);
-        let options = make_options(seed);
-        group.bench_function(BenchmarkId::new("equation_search", seed), |b| {
+    group.bench_function("equation_search", |b| {
+        b.iter(|| {
+            for (dataset, options) in datasets.iter().zip(options.iter()) {
+                let _ = equation_search::<T, Ops, D>(dataset, options);
+            }
+        })
+    });
+    group.finish();
+}
+
+fn bench_utils(c: &mut Criterion) {
+    let mut group = c.benchmark_group("utils");
+
+    // best_of_sample
+    {
+        let options = make_utils_options();
+        let dataset = make_random_dataset(0, 32, 1);
+        let (population, stats) = make_population(5, &dataset, &options, POP_SIZE, 20);
+        let mut rng = StdRng::seed_from_u64(99);
+
+        group.bench_function("best_of_sample", |b| {
             b.iter(|| {
-                let _res = equation_search::<T, Ops, D>(&dataset, &options);
+                let _ = best_of_sample(&mut rng, &population, &stats, &options);
             })
         });
     }
+
+    // next_generation_x100
+    {
+        let dataset = make_random_dataset(1, 32, 1);
+        let mut options = make_utils_options();
+        let mut mutation_weights = options.mutation_weights.clone();
+        mutation_weights.mutate_constant = 1.0;
+        mutation_weights.mutate_operator = 1.0;
+        mutation_weights.swap_operands = 1.0;
+        mutation_weights.rotate_tree = 1.0;
+        mutation_weights.add_node = 1.0;
+        mutation_weights.insert_node = 1.0;
+        mutation_weights.simplify = 0.0;
+        mutation_weights.randomize = 0.0;
+        mutation_weights.do_nothing = 0.0;
+        mutation_weights.form_connection = 0.0;
+        mutation_weights.break_connection = 0.0;
+        options.mutation_weights = mutation_weights;
+
+        let (population, stats) = make_population(6, &dataset, &options, POP_SIZE, 15);
+
+        group.bench_function("next_generation_x100", |b| {
+            b.iter_batched(
+                || {
+                    let tagged = TaggedDataset::new(&dataset, None);
+                    let evaluator = Evaluator::new(dataset.n_rows);
+                    let rng = StdRng::seed_from_u64(6);
+                    let next_id = population.len() as u64;
+                    let next_birth = population.len() as u64;
+                    (tagged, evaluator, rng, next_id, next_birth)
+                },
+                |(tagged, mut evaluator, mut rng, mut next_id, mut next_birth)| {
+                    for member in population.members.iter() {
+                        let ctx = NextGenerationCtx {
+                            rng: &mut rng,
+                            dataset: tagged,
+                            temperature: 1.0,
+                            curmaxsize: 20,
+                            stats: &stats,
+                            options: &options,
+                            evaluator: &mut evaluator,
+                            next_id: &mut next_id,
+                            next_birth: &mut next_birth,
+                            _ops: PhantomData::<Ops>,
+                        };
+                        let _ = next_generation(member, ctx);
+                    }
+                },
+                BatchSize::SmallInput,
+            );
+        });
+    }
+
+    // optimize_constants_x10
+    {
+        let dataset = make_random_dataset(9, 512, 1);
+        let options = make_utils_options();
+        let mut rng = StdRng::seed_from_u64(42);
+        let mut members = Vec::with_capacity(10);
+        for i in 0..10 {
+            let expr =
+                random_expr::<T, Ops, D, _>(&mut rng, &options.operators, dataset.n_features, 20);
+            let member =
+                PopMember::from_expr(MemberId(i as u64), None, i as u64, expr, dataset.n_features);
+            members.push(member);
+        }
+
+        group.bench_function("optimize_constants_x10", |b| {
+            b.iter(|| {
+                let mut evaluator = Evaluator::new(dataset.n_rows);
+                let mut grad_ctx = dynamic_expressions::GradContext::<T, D>::new(dataset.n_rows);
+                let mut next_birth = 0u64;
+
+                for member in &members {
+                    let mut m = member.clone();
+                    let ctx = OptimizeConstantsCtx {
+                        dataset: TaggedDataset::new(&dataset, None),
+                        options: &options,
+                        evaluator: &mut evaluator,
+                        grad_ctx: &mut grad_ctx,
+                        next_birth: &mut next_birth,
+                    };
+                    let _ = optimize_constants(&mut rng, &mut m, ctx);
+                }
+            })
+        });
+    }
+
+    // compute_complexity_x10 (Rust uses fixed u16 complexity types)
+    {
+        let options = make_utils_options();
+        let mut rng = StdRng::seed_from_u64(7);
+        let trees: Vec<_> = (0..10)
+            .map(|_| random_expr::<T, Ops, D, _>(&mut rng, &options.operators, 3, 20))
+            .collect();
+
+        group.bench_function(BenchmarkId::new("compute_complexity_x10", "u16"), |b| {
+            b.iter(|| {
+                for tree in &trees {
+                    let _ = symbolic_regression::compute_complexity(&tree.nodes, &options);
+                }
+            })
+        });
+    }
+
+    // randomly_rotate_tree_x10
+    {
+        let options = make_utils_options();
+        group.bench_function("randomly_rotate_tree_x10", |b| {
+            b.iter_batched(
+                || {
+                    let mut rng = StdRng::seed_from_u64(11);
+                    let trees: Vec<_> = (0..10)
+                        .map(|_| random_expr::<T, Ops, D, _>(&mut rng, &options.operators, 3, 20))
+                        .collect();
+                    (rng, trees)
+                },
+                |(mut rng, mut trees)| {
+                    for tree in trees.iter_mut() {
+                        rotate_tree_in_place(&mut rng, tree);
+                    }
+                },
+                BatchSize::SmallInput,
+            );
+        });
+    }
+
+    // insert_random_op_x10
+    {
+        let options = make_utils_options();
+        group.bench_function("insert_random_op_x10", |b| {
+            b.iter_batched(
+                || {
+                    let mut rng = StdRng::seed_from_u64(12);
+                    let trees: Vec<_> = (0..10)
+                        .map(|_| random_expr::<T, Ops, D, _>(&mut rng, &options.operators, 3, 20))
+                        .collect();
+                    (rng, trees)
+                },
+                |(mut rng, mut trees)| {
+                    for tree in trees.iter_mut() {
+                        insert_random_op_in_place(&mut rng, tree, &options.operators, 3);
+                    }
+                },
+                BatchSize::SmallInput,
+            );
+        });
+    }
+
+    // check_constraints_x10
+    {
+        let mut options = make_utils_options();
+        options.maxsize = 30;
+        options.maxdepth = 20;
+
+        let add = OpId {
+            arity: 2,
+            id: <Ops as HasOp<Add, 2>>::ID,
+        };
+        let sub = OpId {
+            arity: 2,
+            id: <Ops as HasOp<Sub, 2>>::ID,
+        };
+        let div = OpId {
+            arity: 2,
+            id: <Ops as HasOp<Div, 2>>::ID,
+        };
+        let sin = OpId {
+            arity: 1,
+            id: <Ops as HasOp<Sin, 1>>::ID,
+        };
+        let cos = OpId {
+            arity: 1,
+            id: <Ops as HasOp<Cos, 1>>::ID,
+        };
+
+        options.op_constraints.set_op_arg_constraint(add, 1, 10);
+        options.op_constraints.set_op_arg_constraint(div, 0, 10);
+        options.op_constraints.set_op_arg_constraint(div, 1, 10);
+        options.op_constraints.set_op_arg_constraint(sin, 0, 12);
+        options.op_constraints.set_op_arg_constraint(cos, 0, 5);
+
+        options.nested_constraints.add_nested_constraint(add, div, 1);
+        options.nested_constraints.add_nested_constraint(add, add, 2);
+        options.nested_constraints.add_nested_constraint(sin, sin, 0);
+        options.nested_constraints.add_nested_constraint(sin, cos, 2);
+        options.nested_constraints.add_nested_constraint(cos, sin, 0);
+        options.nested_constraints.add_nested_constraint(cos, cos, 0);
+        options.nested_constraints.add_nested_constraint(cos, add, 1);
+        options.nested_constraints.add_nested_constraint(cos, sub, 1);
+
+        let mut rng = StdRng::seed_from_u64(13);
+        let trees: Vec<_> = (0..10)
+            .map(|_| random_expr::<T, Ops, D, _>(&mut rng, &options.operators, 3, 20))
+            .collect();
+
+        group.bench_function("check_constraints_x10", |b| {
+            b.iter(|| {
+                for tree in &trees {
+                    let _ = check_constraints(tree, &options, options.maxsize);
+                }
+            })
+        });
+    }
+
     group.finish();
 }
 
-fn bench_optimize_constants(c: &mut Criterion) {
-    let (dataset, _) = make_dataset(9);
-    let options = make_options(9);
-    let mut rng = StdRng::seed_from_u64(42);
-    let expr = symbolic_regression::random_expr::<T, Ops, D, _>(
-        &mut rng,
-        &options.operators,
-        dataset.n_features,
-        12,
-    );
-    let member = PopMember::from_expr(
-        symbolic_regression::MemberId(0),
-        None,
-        0,
-        expr,
-        dataset.n_features,
-    );
-
-    let mut group = c.benchmark_group("utils/optimize_constants");
-    group.sample_size(10);
-    group.measurement_time(Duration::from_secs(2));
-    group.warm_up_time(Duration::from_secs(1));
-    group.bench_function("optimize_constants_single", |b| {
-        b.iter(|| {
-            let mut evaluator = symbolic_regression::Evaluator::new(dataset.n_rows);
-            let mut grad_ctx = dynamic_expressions::GradContext::<T, D>::new(dataset.n_rows);
-            let mut next_birth = 0u64;
-
-            let mut m = member.clone();
-            let ctx = symbolic_regression::OptimizeConstantsCtx {
-                dataset: symbolic_regression::TaggedDataset::new(&dataset, None),
-                options: &options,
-                evaluator: &mut evaluator,
-                grad_ctx: &mut grad_ctx,
-                next_birth: &mut next_birth,
-            };
-
-            let _ = optimize_constants(&mut rng, &mut m, ctx);
-        })
-    });
-    group.finish();
-}
-
-fn bench_complexity_and_constraints(c: &mut Criterion) {
-    let mut rng = StdRng::seed_from_u64(7);
-    let options = make_options(7);
-    let trees: Vec<_> = (0..20)
-        .map(|_| {
-            symbolic_regression::random_expr::<T, Ops, D, _>(
-                &mut rng,
-                &options.operators,
-                N_FEATURES,
-                20,
-            )
-        })
-        .collect();
-
-    let mut group = c.benchmark_group("utils");
-    group.sample_size(10);
-    group.measurement_time(Duration::from_secs(2));
-    group.warm_up_time(Duration::from_secs(1));
-    group.bench_function("compute_complexity_x20", |b| {
-        b.iter(|| {
-            for tree in &trees {
-                let _ = compute_complexity(tree.nodes(), &options);
-            }
-        })
-    });
-
-    group.bench_function("check_constraints_x20", |b| {
-        b.iter(|| {
-            for tree in &trees {
-                let _ = check_constraints(tree, &options, options.maxsize);
-            }
-        })
-    });
-    group.finish();
-}
-
-criterion_group!(
-    benches,
-    bench_search,
-    bench_optimize_constants,
-    bench_complexity_and_constraints
-);
+criterion_group!(benches, bench_search, bench_utils);
 criterion_main!(benches);

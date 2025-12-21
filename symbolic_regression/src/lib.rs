@@ -29,12 +29,16 @@ pub mod cli;
 pub mod bench;
 
 #[cfg(feature = "bench")]
-pub use crate::{
+pub use {
+    crate::mutation_functions::{
+        insert_random_op_in_place, random_expr, random_expr_append_ops, rotate_tree_in_place,
+    },
+    adaptive_parsimony::RunningSearchStatistics,
     check_constraints::check_constraints,
     constant_optimization::{optimize_constants, OptimizeConstantsCtx},
-    mutate::next_generation,
-    mutation_functions::{random_expr, random_expr_append_ops},
+    mutate::{next_generation, NextGenerationCtx},
     pop_member::Evaluator,
+    population::Population,
     selection::best_of_sample,
 };
 
