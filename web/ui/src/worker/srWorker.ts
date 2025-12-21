@@ -64,8 +64,9 @@ self.onmessage = async (e: MessageEvent<WorkerToWorkerMsg>) => {
   try {
     if (msg.type === "init") {
       running = false;
-      await init();
-      if (self.crossOriginIsolated && typeof SharedArrayBuffer === "function") {
+      const wasmExports = await init();
+      const hasSharedMemory = wasmExports?.memory?.buffer instanceof SharedArrayBuffer;
+      if (self.crossOriginIsolated && hasSharedMemory) {
         const n = Math.max(2, Math.min(Number(self.navigator?.hardwareConcurrency ?? 4), 16));
         try {
           await init_thread_pool(n);
