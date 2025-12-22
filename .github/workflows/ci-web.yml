@@ -88,6 +88,7 @@ jobs:
       - name: Build WASM package for web/ui
         env:
           RUSTFLAGS: -C target-feature=+atomics,+bulk-memory,+mutable-globals
+          WASM_BINDGEN_FLAGS: --enable-threads
         run: |
           cd web/wasm
           wasm-pack build --no-opt --target web --out-dir ../ui/src/pkg
