@@ -154,6 +154,7 @@ struct MutationApplyCtx<'a, 'd, T: Float, Ops, const D: usize, R: Rng> {
 }
 
 impl MutationChoice {
+    #[allow(clippy::too_many_arguments)]
     fn apply<T: Float + num_traits::FromPrimitive + num_traits::ToPrimitive, Ops, const D: usize, R: Rng>(
         self,
         ctx: MutationApplyCtx<'_, '_, T, Ops, D, R>,
