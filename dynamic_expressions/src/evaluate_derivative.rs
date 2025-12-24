@@ -6,6 +6,7 @@ use crate::evaluate::{EvalOptions, resolve_der_src, resolve_grad_src, resolve_va
 use crate::expression::PostfixExpr;
 use crate::node::Src;
 use crate::operator_enum::scalar::{DiffKernelCtx, GradKernelCtx, GradRef, OpId, ScalarOpSet, SrcRef};
+use crate::utils::ZipEq;
 
 #[derive(Debug)]
 pub struct DiffContext<T: Float, const D: usize> {
@@ -154,7 +155,7 @@ where
         for (j, (dst_a, dst_da)) in args_refs
             .iter_mut()
             .take(arity)
-            .zip(dargs_refs.iter_mut().take(arity))
+            .zip_eq(dargs_refs.iter_mut().take(arity))
             .enumerate()
         {
             *dst_a = resolve_val_src(
@@ -284,7 +285,7 @@ where
         for (j, (dst_a, dst_ga)) in args_refs
             .iter_mut()
             .take(arity)
-            .zip(arg_grads.iter_mut().take(arity))
+            .zip_eq(arg_grads.iter_mut().take(arity))
             .enumerate()
         {
             *dst_a = resolve_val_src(
