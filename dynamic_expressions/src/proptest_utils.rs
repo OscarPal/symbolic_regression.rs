@@ -25,6 +25,7 @@ impl GenExpr {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn arb_expr(
     n_features: usize,
     n_consts: usize,
@@ -79,6 +80,7 @@ pub fn arb_expr(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn arb_postfix_nodes(
     n_features: usize,
     n_consts: usize,
