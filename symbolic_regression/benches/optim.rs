@@ -4,10 +4,8 @@ use criterion::{BatchSize, BenchmarkId, Criterion, criterion_group, criterion_ma
 use dynamic_expressions::operator_enum::presets::BuiltinOpsF32;
 use dynamic_expressions::operator_enum::{builtin, scalar};
 use dynamic_expressions::utils::ZipEq;
+use fastrand::Rng;
 use ndarray::{Array1, Array2};
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
-use rand_distr::StandardNormal;
 use symbolic_regression::{
     Dataset, Evaluator, MemberId, NextGenerationCtx, Operators, OptimizeConstantsCtx, Options, PopMember, Population,
     RunningSearchStatistics, TaggedDataset, best_of_sample, check_constraints, equation_search,
@@ -18,6 +16,13 @@ type T = f32;
 const D: usize = 3;
 type Ops = BuiltinOpsF32;
 const POP_SIZE: usize = 100;
+
+fn f32_range(rng: &mut Rng, range: std::ops::Range<f32>) -> f32 {
+    if range.start >= range.end {
+        return range.start;
+    }
+    range.start + (range.end - range.start) * rng.f32()
+}
 
 fn make_ops_search() -> Operators<D> {
     Operators::<D>::from_names_by_arity::<Ops>(&["exp", "abs"], &["+", "-", "*", "/"], &[]).expect("search operators")
@@ -51,17 +56,29 @@ fn make_utils_options() -> Options<T, D> {
     }
 }
 
+fn standard_normal_f64(rng: &mut Rng) -> f64 {
+    let u1 = rng.f64().max(f64::MIN_POSITIVE);
+    let u2 = rng.f64();
+    (-2.0 * u1.ln())
+        .sqrt()
+        .mul_add((2.0 * std::f64::consts::PI * u2).cos(), 0.0)
+}
+
+fn standard_normal_f32(rng: &mut Rng) -> f32 {
+    standard_normal_f64(rng) as f32
+}
+
 fn make_dataset(seed: u64, n_rows: usize, n_features: usize) -> Dataset<T> {
-    let mut rng = StdRng::seed_from_u64(seed);
+    let mut rng = Rng::with_seed(seed);
     let mut x: Vec<T> = Vec::with_capacity(n_rows * n_features);
     for _ in 0..n_rows * n_features {
-        x.push(rng.random_range(-5.0f32..5.0f32));
+        x.push(f32_range(&mut rng, -5.0f32..5.0f32));
     }
     let x_arr = Array2::from_shape_vec((n_features, n_rows), x).unwrap();
 
     let mut y = Vec::with_capacity(n_rows);
     for r in 0..n_rows {
-        let noise: f32 = rng.sample(StandardNormal);
+        let noise: f32 = standard_normal_f32(&mut rng);
         let x0 = x_arr[(0, r)];
         let x1 = x_arr[(1, r)];
         let x2 = x_arr[(2, r)];
@@ -76,15 +93,15 @@ fn make_dataset(seed: u64, n_rows: usize, n_features: usize) -> Dataset<T> {
 }
 
 fn make_random_dataset(seed: u64, n_rows: usize, n_features: usize) -> Dataset<T> {
-    let mut rng = StdRng::seed_from_u64(seed);
+    let mut rng = Rng::with_seed(seed);
     let mut x: Vec<T> = Vec::with_capacity(n_rows * n_features);
     for _ in 0..n_rows * n_features {
-        let v: f32 = rng.sample(StandardNormal);
+        let v: f32 = standard_normal_f32(&mut rng);
         x.push(v);
     }
     let mut y = Vec::with_capacity(n_rows);
     for _ in 0..n_rows {
-        let v: f32 = rng.sample(StandardNormal);
+        let v: f32 = standard_normal_f32(&mut rng);
         y.push(v);
     }
     Dataset::new(
@@ -100,13 +117,13 @@ fn make_population(
     pop_size: usize,
     tree_size: usize,
 ) -> (Population<T, Ops, D>, RunningSearchStatistics) {
-    let mut rng = StdRng::seed_from_u64(seed);
+    let mut rng = Rng::with_seed(seed);
     let tagged = TaggedDataset::new(dataset, None);
     let mut evaluator = Evaluator::new(dataset.n_rows);
 
     let mut members = Vec::with_capacity(pop_size);
     for i in 0..pop_size {
-        let expr = random_expr::<T, Ops, D, _>(&mut rng, &options.operators, dataset.n_features, tree_size);
+        let expr = random_expr::<T, Ops, D>(&mut rng, &options.operators, dataset.n_features, tree_size);
         let mut member = PopMember::from_expr(MemberId(i as u64), None, i as u64, expr, dataset.n_features);
         let _ = member.evaluate(&tagged, options, &mut evaluator);
         members.push(member);
@@ -144,7 +161,7 @@ fn bench_utils(c: &mut Criterion) {
         let options = make_utils_options();
         let dataset = make_random_dataset(0, 32, 1);
         let (population, stats) = make_population(5, &dataset, &options, POP_SIZE, 20);
-        let mut rng = StdRng::seed_from_u64(99);
+        let mut rng = Rng::with_seed(99);
 
         group.bench_function("best_of_sample", |b| {
             b.iter(|| {
@@ -178,7 +195,7 @@ fn bench_utils(c: &mut Criterion) {
                 || {
                     let tagged = TaggedDataset::new(&dataset, None);
                     let evaluator = Evaluator::new(dataset.n_rows);
-                    let rng = StdRng::seed_from_u64(6);
+                    let rng = Rng::with_seed(6);
                     let next_id = population.len() as u64;
                     let next_birth = population.len() as u64;
                     (tagged, evaluator, rng, next_id, next_birth)
@@ -209,10 +226,10 @@ fn bench_utils(c: &mut Criterion) {
     {
         let dataset = make_random_dataset(9, 512, 1);
         let options = make_utils_options();
-        let mut rng = StdRng::seed_from_u64(42);
+        let mut rng = Rng::with_seed(42);
         let mut members = Vec::with_capacity(10);
         for i in 0..10 {
-            let expr = random_expr::<T, Ops, D, _>(&mut rng, &options.operators, dataset.n_features, 20);
+            let expr = random_expr::<T, Ops, D>(&mut rng, &options.operators, dataset.n_features, 20);
             let member = PopMember::from_expr(MemberId(i as u64), None, i as u64, expr, dataset.n_features);
             members.push(member);
         }
@@ -241,9 +258,9 @@ fn bench_utils(c: &mut Criterion) {
     // compute_complexity_x10 (Rust uses fixed u16 complexity types)
     {
         let options = make_utils_options();
-        let mut rng = StdRng::seed_from_u64(7);
+        let mut rng = Rng::with_seed(7);
         let trees: Vec<_> = (0..10)
-            .map(|_| random_expr::<T, Ops, D, _>(&mut rng, &options.operators, 3, 20))
+            .map(|_| random_expr::<T, Ops, D>(&mut rng, &options.operators, 3, 20))
             .collect();
 
         group.bench_function(BenchmarkId::new("compute_complexity_x10", "u16"), |b| {
@@ -261,9 +278,9 @@ fn bench_utils(c: &mut Criterion) {
         group.bench_function("randomly_rotate_tree_x10", |b| {
             b.iter_batched(
                 || {
-                    let mut rng = StdRng::seed_from_u64(11);
+                    let mut rng = Rng::with_seed(11);
                     let trees: Vec<_> = (0..10)
-                        .map(|_| random_expr::<T, Ops, D, _>(&mut rng, &options.operators, 3, 20))
+                        .map(|_| random_expr::<T, Ops, D>(&mut rng, &options.operators, 3, 20))
                         .collect();
                     (rng, trees)
                 },
@@ -283,9 +300,9 @@ fn bench_utils(c: &mut Criterion) {
         group.bench_function("insert_random_op_x10", |b| {
             b.iter_batched(
                 || {
-                    let mut rng = StdRng::seed_from_u64(12);
+                    let mut rng = Rng::with_seed(12);
                     let trees: Vec<_> = (0..10)
-                        .map(|_| random_expr::<T, Ops, D, _>(&mut rng, &options.operators, 3, 20))
+                        .map(|_| random_expr::<T, Ops, D>(&mut rng, &options.operators, 3, 20))
                         .collect();
                     (rng, trees)
                 },
@@ -341,9 +358,9 @@ fn bench_utils(c: &mut Criterion) {
         options.nested_constraints.add_nested_constraint(cos, add, 1);
         options.nested_constraints.add_nested_constraint(cos, sub, 1);
 
-        let mut rng = StdRng::seed_from_u64(13);
+        let mut rng = Rng::with_seed(13);
         let trees: Vec<_> = (0..10)
-            .map(|_| random_expr::<T, Ops, D, _>(&mut rng, &options.operators, 3, 20))
+            .map(|_| random_expr::<T, Ops, D>(&mut rng, &options.operators, 3, 20))
             .collect();
 
         group.bench_function("check_constraints_x10", |b| {

@@ -6,10 +6,8 @@ use dynamic_expressions::operator_registry::OpRegistry;
 use dynamic_expressions::strings::{StringTreeOptions, string_tree};
 use dynamic_expressions::utils::ZipEq;
 use dynamic_expressions::{EvalOptions, eval_plan_array_into};
+use fastrand::Rng;
 use ndarray::{Array1, Array2};
-use rand::SeedableRng;
-use rand::rngs::StdRng;
-use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value, to_value};
 use symbolic_regression::{Dataset, LossKind, MutationWeights, Operators, Options, SearchEngine};
@@ -83,6 +81,16 @@ pub struct WasmMutationWeights {
     pub optimize: f64,
     pub form_connection: f64,
     pub break_connection: f64,
+}
+
+fn shuffle<T>(rng: &mut Rng, values: &mut [T]) {
+    if values.len() <= 1 {
+        return;
+    }
+    for i in (1..values.len()).rev() {
+        let j = rng.usize(0..=i);
+        values.swap(i, j);
+    }
 }
 
 impl Default for WasmMutationWeights {
@@ -829,8 +837,8 @@ fn make_split_indices(n_rows: usize, validation_fraction: f64, seed: u64) -> Was
     }
 
     let mut idx: Vec<usize> = (0..n_rows).collect();
-    let mut rng = StdRng::seed_from_u64(seed ^ 0x6a09_e667_f3bc_c909);
-    idx.shuffle(&mut rng);
+    let mut rng = Rng::with_seed(seed ^ 0x6a09_e667_f3bc_c909);
+    shuffle(&mut rng, &mut idx);
 
     let val = idx[..n_val].to_vec();
     let train = idx[n_val..].to_vec();

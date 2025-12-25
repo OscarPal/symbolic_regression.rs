@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use criterion::{criterion_group, criterion_main};
 use dynamic_expressions::evaluate::EvalOptions;
 use dynamic_expressions::expression::PostfixExpr;
@@ -5,10 +7,9 @@ use dynamic_expressions::node::PNode;
 use dynamic_expressions::operator_enum::scalar::ScalarOpSet;
 use dynamic_expressions::operator_registry::OpRegistry;
 use dynamic_expressions::opset;
+use fastrand::Rng;
 use ndarray::Array2;
 use num_traits::Float;
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
 
 const N_FEATURES: usize = 5;
 const TREE_SIZE: usize = 20;
@@ -31,23 +32,27 @@ opset! {
     }
 }
 
-fn random_leaf<T: Float, R: Rng>(rng: &mut R, n_features: usize, consts: &mut Vec<T>) -> PNode {
-    if rng.random_bool(0.5) {
-        let val: T = T::from(rng.random_range(-2.0..2.0)).unwrap();
+fn f64_range(rng: &mut Rng, range: Range<f64>) -> f64 {
+    if range.start >= range.end {
+        return range.start;
+    }
+    range.start + (range.end - range.start) * rng.f64()
+}
+
+fn random_leaf<T: Float>(rng: &mut Rng, n_features: usize, consts: &mut Vec<T>) -> PNode {
+    if rng.bool() {
+        let val: T = T::from(f64_range(rng, -2.0..2.0)).unwrap();
         let idx: u16 = consts.len().try_into().expect("too many constants");
         consts.push(val);
         PNode::Const { idx }
     } else {
-        let f: u16 = rng
-            .random_range(0..n_features)
-            .try_into()
-            .expect("feature index overflow");
+        let f: u16 = rng.usize(0..n_features).try_into().expect("feature index overflow");
         PNode::Var { feature: f }
     }
 }
 
-fn gen_random_tree_fixed_size<T: Float, Ops: OpRegistry, const D: usize, R: Rng>(
-    rng: &mut R,
+fn gen_random_tree_fixed_size<T: Float, Ops: OpRegistry, const D: usize>(
+    rng: &mut Rng,
     target_size: usize,
     n_features: usize,
 ) -> PostfixExpr<T, Ops, D> {
@@ -68,10 +73,10 @@ fn gen_random_tree_fixed_size<T: Float, Ops: OpRegistry, const D: usize, R: Rng>
     while nodes.len() < target_size {
         let rem = target_size - nodes.len();
         let max_arity = rem.min(D);
-        let arity = match 1..=max_arity {
-            range if range.is_empty() => break,
-            range => rng.random_range(range),
-        } as u8;
+        if max_arity == 0 {
+            break;
+        }
+        let arity = rng.usize(1..=max_arity) as u8;
 
         let Some(choices) = ops_by_arity.get(usize::from(arity) - 1) else {
             break;
@@ -79,7 +84,7 @@ fn gen_random_tree_fixed_size<T: Float, Ops: OpRegistry, const D: usize, R: Rng>
         if choices.is_empty() {
             break;
         }
-        let op = choices[rng.random_range(0..choices.len())];
+        let op = choices[rng.usize(0..choices.len())];
 
         let leaves: Vec<_> = nodes
             .iter()
@@ -89,7 +94,7 @@ fn gen_random_tree_fixed_size<T: Float, Ops: OpRegistry, const D: usize, R: Rng>
         if leaves.is_empty() {
             break;
         }
-        let pos = leaves[rng.random_range(0..leaves.len())];
+        let pos = leaves[rng.usize(0..leaves.len())];
 
         let mut repl = Vec::with_capacity(usize::from(arity) + 1);
         for _ in 0..arity {
@@ -119,7 +124,7 @@ where
     T: Float + core::ops::AddAssign + Send + Sync,
     Ops: OpRegistry + ScalarOpSet<T> + Send + Sync,
 {
-    let mut rng = StdRng::seed_from_u64(0);
+    let mut rng = Rng::with_seed(0);
     let trees: Vec<PostfixExpr<T, Ops, D>> = (0..N_TREES)
         .map(|_| gen_random_tree_fixed_size(&mut rng, TREE_SIZE, N_FEATURES))
         .collect();
@@ -159,7 +164,7 @@ where
     T: Float + Send + Sync,
     Ops: OpRegistry + ScalarOpSet<T> + Send + Sync,
 {
-    let mut rng = StdRng::seed_from_u64(1);
+    let mut rng = Rng::with_seed(1);
     let mut trees: Vec<PostfixExpr<T, Ops, D>> = (0..N_TREES)
         .map(|_| gen_random_tree_fixed_size(&mut rng, TREE_SIZE, N_FEATURES))
         .collect();
