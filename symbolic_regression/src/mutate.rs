@@ -112,10 +112,6 @@ pub fn condition_mutation_weights<T: Float + AddAssign, Ops, const D: usize>(
     if !options.should_simplify {
         weights.simplify = 0.0;
     }
-
-    if !options.should_optimize_constants || options.optimizer_probability == 0.0 || member.expr.consts.is_empty() {
-        weights.optimize = 0.0;
-    }
 }
 
 pub fn sample_mutation(rng: &mut Rng, weights: &MutationWeights) -> MutationChoice {
