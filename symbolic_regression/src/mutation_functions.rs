@@ -6,7 +6,7 @@ use num_traits::Float;
 
 use crate::operators::Operators;
 use crate::options::Options;
-use crate::random::{standard_normal, usize_range};
+use crate::random::{standard_normal, usize_range, usize_range_excl};
 
 fn random_leaf<T: Float>(rng: &mut Rng, n_features: usize, consts: &mut Vec<T>) -> PNode {
     if rng.bool() {
@@ -214,34 +214,22 @@ pub(crate) fn mutate_feature_in_place<T, Ops, const D: usize>(
     rng: &mut Rng,
     expr: &mut PostfixExpr<T, Ops, D>,
     n_features: usize,
-) -> bool {
+) {
     if n_features <= 1 {
-        return false;
+        return;
     }
     let idxs = var_node_indices(&expr.nodes);
     if idxs.is_empty() {
-        return false;
+        return;
     }
-    let node_i = idxs[usize_range(rng, 0..idxs.len())];
-    let PNode::Var { feature } = expr.nodes[node_i] else {
-        return false;
+    let node_i = rng.choice(idxs).unwrap();
+    let PNode::Var { ref mut feature } = &mut expr.nodes[node_i] else {
+        unreachable!("expected var node");
     };
-    let old = usize::from(feature);
-    if old >= n_features {
-        return false;
-    }
-
-    for _ in 0..8 {
-        let new_feature = usize_range(rng, 0..n_features);
-        if new_feature != old {
-            let new_u16: u16 = new_feature
-                .try_into()
-                .unwrap_or_else(|_| panic!("too many features to index in u16"));
-            expr.nodes[node_i] = PNode::Var { feature: new_u16 };
-            return true;
-        }
-    }
-    false
+    let old = usize::from(*feature);
+    assert!(old < n_features, "feature index out of bounds");
+    let new_feature = usize_range_excl(rng, 0..n_features, old);
+    *feature = new_feature as u16;
 }
 
 pub(crate) fn swap_operands_in_place<T, Ops, const D: usize>(rng: &mut Rng, expr: &mut PostfixExpr<T, Ops, D>) -> bool {

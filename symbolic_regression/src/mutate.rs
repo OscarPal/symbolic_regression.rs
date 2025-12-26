@@ -140,7 +140,6 @@ pub fn sample_mutation(rng: &mut Rng, weights: &MutationWeights) -> MutationChoi
 
 struct MutationOutcome<T: Float + AddAssign, Ops, const D: usize> {
     expr: PostfixExpr<T, Ops, D>,
-    mutated: bool,
     evals: f64,
     return_immediately: bool,
 }
@@ -178,57 +177,73 @@ impl MutationChoice {
         let n_features = dataset.n_features;
         match self {
             MutationChoice::MutateConstant => MutationOutcome {
-                mutated: mutation_functions::mutate_constant_in_place(rng, &mut expr, temperature, options),
-                expr,
+                expr: {
+                    let _ = mutation_functions::mutate_constant_in_place(rng, &mut expr, temperature, options);
+                    expr
+                },
                 evals: 0.0,
                 return_immediately: false,
             },
             MutationChoice::MutateOperator => MutationOutcome {
-                mutated: mutation_functions::mutate_operator_in_place(rng, &mut expr, &options.operators),
-                expr,
+                expr: {
+                    let _ = mutation_functions::mutate_operator_in_place(rng, &mut expr, &options.operators);
+                    expr
+                },
                 evals: 0.0,
                 return_immediately: false,
             },
             MutationChoice::MutateFeature => MutationOutcome {
-                mutated: mutation_functions::mutate_feature_in_place(rng, &mut expr, n_features),
-                expr,
+                expr: {
+                    mutation_functions::mutate_feature_in_place(rng, &mut expr, n_features);
+                    expr
+                },
                 evals: 0.0,
                 return_immediately: false,
             },
             MutationChoice::SwapOperands => MutationOutcome {
-                mutated: mutation_functions::swap_operands_in_place(rng, &mut expr),
-                expr,
+                expr: {
+                    let _ = mutation_functions::swap_operands_in_place(rng, &mut expr);
+                    expr
+                },
                 evals: 0.0,
                 return_immediately: false,
             },
             MutationChoice::RotateTree => MutationOutcome {
-                mutated: mutation_functions::rotate_tree_in_place(rng, &mut expr),
-                expr,
+                expr: {
+                    let _ = mutation_functions::rotate_tree_in_place(rng, &mut expr);
+                    expr
+                },
                 evals: 0.0,
                 return_immediately: false,
             },
             MutationChoice::AddNode => MutationOutcome {
-                mutated: mutation_functions::add_node_in_place(rng, &mut expr, &options.operators, n_features),
-                expr,
+                expr: {
+                    let _ = mutation_functions::add_node_in_place(rng, &mut expr, &options.operators, n_features);
+                    expr
+                },
                 evals: 0.0,
                 return_immediately: false,
             },
             MutationChoice::InsertNode => MutationOutcome {
-                mutated: mutation_functions::insert_random_op_in_place(rng, &mut expr, &options.operators, n_features),
-                expr,
+                expr: {
+                    let _ =
+                        mutation_functions::insert_random_op_in_place(rng, &mut expr, &options.operators, n_features);
+                    expr
+                },
                 evals: 0.0,
                 return_immediately: false,
             },
             MutationChoice::DeleteNode => MutationOutcome {
-                mutated: mutation_functions::delete_random_op_in_place(rng, &mut expr),
-                expr,
+                expr: {
+                    let _ = mutation_functions::delete_random_op_in_place(rng, &mut expr);
+                    expr
+                },
                 evals: 0.0,
                 return_immediately: false,
             },
             MutationChoice::Simplify => {
                 let _ = dynamic_expressions::simplify_in_place(&mut expr, &evaluator.eval_opts);
                 MutationOutcome {
-                    mutated: true,
                     expr,
                     evals: 0.0,
                     return_immediately: true,
@@ -239,14 +254,12 @@ impl MutationChoice {
                 let max_size = curmaxsize.max(1).min(options.maxsize.max(1));
                 let target_size = usize_range_inclusive(rng, 1..=max_size);
                 MutationOutcome {
-                    mutated: true,
                     expr: mutation_functions::random_expr(rng, &options.operators, n_features, target_size),
                     evals: 0.0,
                     return_immediately: false,
                 }
             }
             MutationChoice::DoNothing => MutationOutcome {
-                mutated: true,
                 expr,
                 evals: 0.0,
                 return_immediately: false,
@@ -280,7 +293,6 @@ impl MutationChoice {
                 tmp.birth = orig_birth;
 
                 MutationOutcome {
-                    mutated: true,
                     expr: tmp.expr,
                     evals,
                     return_immediately: false,
@@ -340,14 +352,12 @@ where
             evaluator,
         });
         evals += outcome.evals;
-        if !outcome.mutated {
-            continue;
-        }
-        tree = outcome.expr;
-        compress_constants(&mut tree);
-        if check_constraints(&tree, options, curmaxsize) {
+        let mut candidate = outcome.expr;
+        compress_constants(&mut candidate);
+        if check_constraints(&candidate, options, curmaxsize) {
             successful = true;
             return_immediately = outcome.return_immediately;
+            tree = candidate;
             break;
         }
     }
