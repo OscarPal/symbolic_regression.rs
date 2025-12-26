@@ -87,13 +87,13 @@ where
             } else {
                 Ops::infix(op).unwrap_or(Ops::name(op))
             };
-            let children_strings = children.iter().map(|s| strip_outer_parens(s)).collect::<Vec<_>>();
+            let args = children.iter().map(|s| s.as_str());
             if has_infix && op.arity > 1 {
                 // Infix form, like {c1} {op} {c2} {op} {c3} ...
-                let joined = children_strings.join(format!(" {op_display} ").as_str());
+                let joined = args.collect::<Vec<_>>().join(format!(" {op_display} ").as_str());
                 format!("({joined})")
             } else {
-                let joined = children_strings.join(", ");
+                let joined = args.map(strip_outer_parens).collect::<Vec<_>>().join(", ");
                 format!("{op_display}({joined})")
             }
         },

@@ -17,3 +17,15 @@ fn string_tree_uses_variable_names() {
     let s = string_tree(&ex, StringTreeOptions::default());
     assert_eq!(s, "x * cos(y - 3.2)");
 }
+
+#[test]
+fn infix_preserves_child_parens_for_precedence() {
+    let mut a = common::var(0);
+    a.meta.variable_names = vec!["a".into(), "b".into(), "c".into()];
+    let b = common::var(1);
+    let c = common::var(2);
+
+    let expr = (a + b) * c;
+    let s = string_tree(&expr, StringTreeOptions::default());
+    assert_eq!(s, "(a + b) * c");
+}
