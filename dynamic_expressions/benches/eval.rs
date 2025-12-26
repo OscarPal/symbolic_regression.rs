@@ -210,7 +210,7 @@ where
 fn bench_count_depth_sizes<T, Ops, const D: usize>(c: &mut criterion::Criterion, type_name: &str)
 where
     T: Float + Send + Sync,
-    Ops: OpRegistry + ScalarOpSet<T> + Send + Sync,
+    Ops: OperatorSet<T = T> + Send + Sync,
 {
     let mut rng = StdRng::seed_from_u64(2);
     let sizes = [8usize, 20, 64, 128];
