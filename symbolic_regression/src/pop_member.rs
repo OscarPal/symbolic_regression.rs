@@ -148,6 +148,7 @@ where
         options: &Options<T, D>,
         evaluator: &mut Evaluator<T, D>,
     ) -> bool {
+        evaluator.ensure_n_rows(dataset.n_rows);
         let ok = dynamic_expressions::eval_plan_array_into(
             &mut evaluator.yhat,
             &self.plan,
@@ -170,6 +171,11 @@ where
             dataset.y.as_slice().unwrap(),
             dataset.weights.as_ref().and_then(|w| w.as_slice()),
         );
+        if loss.is_nan() {
+            self.loss = loss;
+            self.cost = T::nan();
+            return false;
+        }
         if !loss.is_finite() {
             self.loss = T::infinity();
             self.cost = T::infinity();
