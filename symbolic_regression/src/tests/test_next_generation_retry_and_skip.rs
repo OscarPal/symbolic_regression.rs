@@ -134,6 +134,7 @@ fn reg_evol_cycle_skips_replacement_when_configured() {
     stats.normalize();
 
     let mut next_id = 1u64;
+    let controller = crate::stop_controller::StopController::from_options(&options);
     let ctx = regularized_evolution::RegEvolCtx::<T, TestOps, D> {
         rng: &mut rng,
         dataset: full_dataset,
@@ -141,6 +142,7 @@ fn reg_evol_cycle_skips_replacement_when_configured() {
         options: &options,
         evaluator: &mut evaluator,
         next_id: &mut next_id,
+        controller: &controller,
         temperature: 1.0,
         curmaxsize: 1,
         _ops: core::marker::PhantomData,

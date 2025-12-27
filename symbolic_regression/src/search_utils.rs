@@ -14,6 +14,7 @@ use crate::options::Options;
 use crate::pop_member::{Evaluator, MemberId, PopMember};
 use crate::population::Population;
 use crate::random::shuffle;
+use crate::stop_controller::StopController;
 use crate::{migration, progress_bars, single_iteration, warmup};
 
 pub struct SearchResult<T: Float + AddAssign, Ops, const D: usize> {
@@ -65,11 +66,12 @@ pub(crate) struct PopState<T: Float + AddAssign, Ops, const D: usize> {
 impl<T: Float + AddAssign, Ops, const D: usize> PopState<T, Ops, D> {
     fn run_iteration_phase<'a, F, Ret>(
         &'a mut self,
+        f: F,
         full_dataset: TaggedDataset<'a, T>,
         options: &'a Options<T, D>,
         curmaxsize: usize,
         stats: &'a RunningSearchStatistics,
-        f: F,
+        controller: &'a StopController,
     ) -> Ret
     where
         F: FnOnce(
@@ -110,6 +112,7 @@ impl<T: Float + AddAssign, Ops, const D: usize> PopState<T, Ops, D> {
             evaluator: &mut self.evaluator,
             grad_ctx: &mut self.grad_ctx,
             next_id: &mut self.next_id,
+            controller,
             _ops: core::marker::PhantomData,
         };
 
@@ -134,6 +137,7 @@ struct EquationSearchState<'a, T: Float + AddAssign, Ops, const D: usize> {
     progress: SearchProgress,
     pools: PopPools<T, Ops, D>,
     order_rng: Rng,
+    controller: StopController,
 }
 
 pub fn equation_search<T, Ops, const D: usize>(dataset: &Dataset<T>, options: &Options<T, D>) -> SearchResult<T, Ops, D>
@@ -202,6 +206,7 @@ where
         progress,
         pools,
         order_rng,
+        controller: StopController::from_options(options),
     };
 
     rayon::scope(|scope| {
@@ -229,6 +234,7 @@ pub struct SearchEngine<T: Float + AddAssign, Ops, const D: usize> {
     task_order: Vec<usize>,
     next_task: usize,
     progress_finished: bool,
+    controller: StopController,
 }
 
 impl<T, Ops, const D: usize> SearchEngine<T, Ops, D>
@@ -258,6 +264,7 @@ where
         progress.set_initial_evals(pools.total_evals);
 
         let order_rng = Rng::with_seed(options.seed ^ 0x9e37_79b9_7f4a_7c15);
+        let controller = StopController::from_options(&options);
 
         Self {
             dataset,
@@ -273,6 +280,7 @@ where
             task_order: Vec::new(),
             next_task: 0,
             progress_finished: false,
+            controller,
         }
     }
 
@@ -293,7 +301,7 @@ where
     }
 
     pub fn is_finished(&self) -> bool {
-        self.counters.cycles_remaining() == 0
+        self.counters.cycles_remaining() == 0 || self.controller.is_cancelled()
     }
 
     pub fn hall_of_fame(&self) -> &HallOfFame<T, Ops, D> {
@@ -340,6 +348,15 @@ where
             return false;
         }
 
+        if self.controller.should_stop(self.pools.total_evals) {
+            self.controller.cancel();
+            if !self.progress_finished {
+                self.progress.finish();
+                self.progress_finished = true;
+            }
+            return false;
+        }
+
         self.prepare_iteration();
         if self.is_finished() {
             return false;
@@ -367,6 +384,7 @@ where
             curmaxsize,
             stats_snapshot,
             pop_state,
+            &self.controller,
         );
         apply_task_result(
             &self.options,
@@ -408,19 +426,39 @@ fn execute_task<T, Ops, const D: usize>(
     curmaxsize: usize,
     stats: RunningSearchStatistics,
     mut pop_state: PopState<T, Ops, D>,
+    controller: &StopController,
 ) -> SearchTaskResult<T, Ops, D>
 where
     T: Float + num_traits::FromPrimitive + num_traits::ToPrimitive + AddAssign,
     Ops: dynamic_expressions::OperatorSet<T = T>,
 {
-    let (evals1, best_seen) =
-        pop_state.run_iteration_phase(full_dataset, options, curmaxsize, &stats, |pop, ctx, eval_dataset| {
-            single_iteration::s_r_cycle(pop, ctx, eval_dataset)
-        });
+    if controller.is_cancelled() {
+        return SearchTaskResult {
+            pop_idx,
+            curmaxsize,
+            evals: 0,
+            best_seen: HallOfFame::new(options.maxsize),
+            best_sub_pop: migration::best_sub_pop(&pop_state.pop, options.topn),
+            pop_state,
+        };
+    }
+    let (evals1, best_seen) = pop_state.run_iteration_phase(
+        single_iteration::s_r_cycle,
+        full_dataset,
+        options,
+        curmaxsize,
+        &stats,
+        controller,
+    );
 
-    let evals2 = pop_state.run_iteration_phase(full_dataset, options, curmaxsize, &stats, |pop, ctx, opt_dataset| {
-        single_iteration::optimize_and_simplify_population(pop, ctx, opt_dataset)
-    });
+    let evals2 = pop_state.run_iteration_phase(
+        single_iteration::optimize_and_simplify_population,
+        full_dataset,
+        options,
+        curmaxsize,
+        &stats,
+        controller,
+    );
     let evals = (evals1.max(0.0) + evals2.max(0.0)) as u64;
 
     let best_sub_pop = migration::best_sub_pop(&pop_state.pop, options.topn);
@@ -512,18 +550,29 @@ fn run_scoped_search<'scope, 'env, T, Ops, const D: usize>(
 {
     let full_dataset = state.full_dataset;
     let options = state.options;
+    let controller = state.controller.clone();
 
     let (result_tx, result_rx) = std::sync::mpsc::channel::<SearchTaskResult<T, Ops, D>>();
 
-    for _iter in 0..options.niterations {
+    'iters: for _iter in 0..options.niterations {
+        if controller.should_stop(state.pools.total_evals) {
+            controller.cancel();
+            break 'iters;
+        }
         let mut task_order: Vec<usize> = (0..state.pools.pops.len()).collect();
         shuffle(&mut state.order_rng, &mut task_order);
 
         let mut next_task = 0usize;
         let mut in_flight = 0usize;
+        let mut stop_dispatching = false;
 
         while next_task < task_order.len() || in_flight > 0 {
-            while in_flight < state.n_workers && next_task < task_order.len() {
+            while !stop_dispatching && in_flight < state.n_workers && next_task < task_order.len() {
+                if controller.should_stop(state.pools.total_evals) {
+                    stop_dispatching = true;
+                    controller.cancel();
+                    break;
+                }
                 let pop_idx = task_order[next_task];
                 next_task += 1;
 
@@ -537,11 +586,24 @@ fn run_scoped_search<'scope, 'env, T, Ops, const D: usize>(
                 stats_snapshot.normalize();
 
                 let result_tx = result_tx.clone();
+                let controller = controller.clone();
                 scope.spawn(move |_| {
-                    let res = execute_task(full_dataset, options, pop_idx, curmaxsize, stats_snapshot, st);
+                    let res = execute_task(
+                        full_dataset,
+                        options,
+                        pop_idx,
+                        curmaxsize,
+                        stats_snapshot,
+                        st,
+                        &controller,
+                    );
                     let _ = result_tx.send(res);
                 });
                 in_flight += 1;
+            }
+
+            if in_flight == 0 {
+                break;
             }
 
             let res = result_rx.recv().expect("worker result channel closed early");
@@ -555,6 +617,15 @@ fn run_scoped_search<'scope, 'env, T, Ops, const D: usize>(
                 &mut state.pools,
                 res,
             );
+
+            if controller.should_stop(state.pools.total_evals) {
+                stop_dispatching = true;
+                controller.cancel();
+            }
+        }
+
+        if stop_dispatching {
+            break 'iters;
         }
     }
 }
