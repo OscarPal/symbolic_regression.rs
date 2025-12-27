@@ -275,7 +275,7 @@ where
             return (false, n_evals as f64);
         }
         n_evals = n_evals.saturating_add(1);
-        member.birth = Some(get_birth_order(options.deterministic));
+        member.birth = get_birth_order(options.deterministic);
         (true, n_evals as f64)
     } else {
         member.expr.consts = orig_consts;

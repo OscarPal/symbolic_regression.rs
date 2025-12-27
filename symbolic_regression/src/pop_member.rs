@@ -18,7 +18,7 @@ pub struct MemberId(pub u64);
 pub struct PopMember<T: Float, Ops, const D: usize> {
     pub id: MemberId,
     pub parent: Option<MemberId>,
-    pub birth: Option<u64>,
+    pub birth: u64,
     pub expr: PostfixExpr<T, Ops, D>,
     pub plan: EvalPlan<D>,
     pub complexity: usize,
@@ -109,7 +109,7 @@ where
         Self {
             id,
             parent,
-            birth: Some(get_birth_order(options.deterministic)),
+            birth: get_birth_order(options.deterministic),
             expr,
             plan,
             complexity: 0,
@@ -121,7 +121,7 @@ where
     pub fn from_expr_with_birth(
         id: MemberId,
         parent: Option<MemberId>,
-        birth: Option<u64>,
+        birth: u64,
         expr: PostfixExpr<T, Ops, D>,
         n_features: usize,
     ) -> Self {

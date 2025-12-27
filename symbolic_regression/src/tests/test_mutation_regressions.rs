@@ -56,7 +56,7 @@ fn randomize_mutation_can_succeed_below_size_3() {
     let full_dataset = TaggedDataset::new(&dataset, baseline_loss);
     let stats = RunningSearchStatistics::new(options.maxsize, 10_000);
 
-    let mut parent = PopMember::from_expr_with_birth(MemberId(0), None, Some(0), leaf_expr(0), dataset.n_features);
+    let mut parent = PopMember::from_expr_with_birth(MemberId(0), None, 0, leaf_expr(0), dataset.n_features);
     assert!(parent.evaluate(&full_dataset, &options, &mut evaluator));
 
     let mut rng = Rng::with_seed(0);
@@ -197,7 +197,7 @@ fn add_node_includes_append_at_leaf_move() {
     let full_dataset = TaggedDataset::new(&dataset, baseline_loss);
     let stats = RunningSearchStatistics::new(options.maxsize, 10_000);
 
-    let mut parent = PopMember::from_expr_with_birth(MemberId(0), None, Some(0), expr, dataset.n_features);
+    let mut parent = PopMember::from_expr_with_birth(MemberId(0), None, 0, expr, dataset.n_features);
     assert!(parent.evaluate(&full_dataset, &options, &mut evaluator));
 
     let mut rng = Rng::with_seed(0);
@@ -294,7 +294,7 @@ fn mutate_operator_can_be_a_noop_and_still_succeeds() {
     let full_dataset = TaggedDataset::new(&dataset, baseline_loss);
     let stats = RunningSearchStatistics::new(options.maxsize, 10_000);
 
-    let mut parent = PopMember::from_expr_with_birth(MemberId(0), None, Some(0), expr, dataset.n_features);
+    let mut parent = PopMember::from_expr_with_birth(MemberId(0), None, 0, expr, dataset.n_features);
     assert!(parent.evaluate(&full_dataset, &options, &mut evaluator));
 
     let mut rng = Rng::with_seed(0);

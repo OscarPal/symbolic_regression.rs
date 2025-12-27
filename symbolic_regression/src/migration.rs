@@ -57,7 +57,7 @@ pub fn migrate_into<T: Float, Ops, const D: usize>(
         m.parent = Some(src.id);
         m.id = MemberId(*next_id);
         *next_id += 1;
-        m.birth = Some(get_birth_order(deterministic));
+        m.birth = get_birth_order(deterministic);
         dst.members[loc] = m;
     }
 }
