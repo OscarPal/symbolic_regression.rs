@@ -134,6 +134,8 @@ macro_rules! sr_options_spec {
 #[rustfmt::skip]
 macro_rules! __define_mutation_weights {
     ( $( $name:ident: ($ty:ty, $default:expr, $cli_long:literal), )* ) => {
+        #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+        #[cfg_attr(feature = "serde", serde(default))]
         #[derive(Clone, Debug)]
         pub struct MutationWeights {
             $(pub $name: $ty,)*
@@ -209,127 +211,56 @@ macro_rules! __define_options {
 
 sr_options_spec!(__define_options);
 
+macro_rules! __define_wasm_options_shim {
+    (
+        values { $( $name:ident: ($ty:ty, $default:expr, $cli_long:literal), )* }
+        neg_flags { $( $iname:ident: ($bdefault:expr, $cli_name:ident, $cli_blong:literal), )* }
+        pos_flags { $( $pname:ident: ($pdefault:expr, $cli_pname:ident, $cli_plong:literal), )* }
+    ) => {
+        /// Serde-friendly "wire-format" representation of the SR engine's tunable knobs.
+        ///
+        /// This contains only the option fields listed in `sr_options_spec!` plus
+        /// `mutation_weights`, and can be applied to an `Options` instance.
+        #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+        #[cfg_attr(feature = "serde", serde(default))]
+        #[derive(Clone, Debug)]
+        pub struct WasmOptionsShim {
+            $(pub $name: $ty,)*
+            $(pub $iname: bool,)*
+            $(pub $pname: bool,)*
+
+            pub mutation_weights: MutationWeights,
+        }
+
+        impl Default for WasmOptionsShim {
+            fn default() -> Self {
+                Self {
+                    $($name: $default,)*
+                    $($iname: $bdefault,)*
+                    $($pname: $pdefault,)*
+                    mutation_weights: MutationWeights::default(),
+                }
+            }
+        }
+
+        impl WasmOptionsShim {
+            pub fn apply_to<T: Float, const D: usize>(&self, opt: &mut Options<T, D>) {
+                $(opt.$name = self.$name;)*
+                $(opt.$iname = self.$iname;)*
+                $(opt.$pname = self.$pname;)*
+                opt.mutation_weights = self.mutation_weights.clone();
+            }
+        }
+    };
+}
+
+sr_options_spec!(__define_wasm_options_shim);
+
 impl<T: Float, const D: usize> Options<T, D> {
     pub fn uses_default_complexity(&self) -> bool {
         self.complexity_of_constants == 1
             && self.complexity_of_variables == 1
             && self.variable_complexities.is_none()
             && self.operator_complexity_overrides.is_empty()
-    }
-}
-
-#[cfg(feature = "cli")]
-pub(crate) mod cli_args {
-    use clap::{Args, ValueEnum};
-    use num_traits::Float;
-
-    use super::{MutationWeights, Options, OutputStyle};
-
-    #[derive(Copy, Clone, Debug, ValueEnum)]
-    pub enum OutputStyleCli {
-        Auto,
-        Plain,
-        Ansi,
-    }
-
-    macro_rules! __define_mutation_weights_args {
-        ( $( $name:ident: ($ty:ty, $default:expr, $cli_long:literal), )* ) => {
-            #[derive(Args, Debug, Clone, Default)]
-            pub struct MutationWeightsArgs {
-                $(#[arg(long = $cli_long)] pub $name: Option<$ty>,)*
-            }
-
-            impl MutationWeightsArgs {
-                pub fn apply_to(&self, w: &mut MutationWeights) {
-                    $(if let Some(v) = self.$name { w.$name = v; })*
-                }
-            }
-        };
-    }
-
-    sr_mutation_weights_spec!(__define_mutation_weights_args);
-
-    macro_rules! __define_options_args {
-        (
-            values { $( $name:ident: ($ty:ty, $default:expr, $cli_long:literal), )* }
-            neg_flags { $( $iname:ident: ($bdefault:expr, $cli_name:ident, $cli_blong:literal), )* }
-            pos_flags { $( $pname:ident: ($pdefault:expr, $cli_pname:ident, $cli_plong:literal), )* }
-        ) => {
-            #[derive(Args, Debug, Clone, Default)]
-            pub struct OptionsArgs {
-                $(
-                    #[arg(long = $cli_long)]
-                    pub $name: Option<$ty>,
-                )*
-
-                $(
-                    #[arg(long = $cli_blong)]
-                    pub $cli_name: bool,
-                )*
-
-                $(
-                    #[arg(long = $cli_plong)]
-                    pub $cli_pname: bool,
-                )*
-
-                #[command(flatten)]
-                pub mutation_weights: MutationWeightsArgs,
-
-                #[arg(long, value_enum)]
-                pub output_style: Option<OutputStyleCli>,
-            }
-
-            impl OptionsArgs {
-                pub fn apply_to<T: Float, const D: usize>(&self, opt: &mut Options<T, D>) {
-                    $(
-                        if let Some(v) = self.$name {
-                            opt.$name = v;
-                        }
-                    )*
-
-                    $(
-                        if self.$cli_name {
-                            opt.$iname = false;
-                        }
-                    )*
-
-                    $(
-                        if self.$cli_pname {
-                            opt.$pname = true;
-                        }
-                    )*
-
-                    self.mutation_weights.apply_to(&mut opt.mutation_weights);
-                    if let Some(s) = self.output_style {
-                        opt.output_style = match s {
-                            OutputStyleCli::Auto => OutputStyle::Auto,
-                            OutputStyleCli::Plain => OutputStyle::Plain,
-                            OutputStyleCli::Ansi => OutputStyle::Ansi,
-                        };
-                    }
-                }
-            }
-        };
-    }
-
-    sr_options_spec!(__define_options_args);
-}
-
-#[cfg(all(test, feature = "cli"))]
-mod cli_args_tests {
-    use super::Options;
-    use super::cli_args::OptionsArgs;
-
-    #[test]
-    fn cli_options_patch_applies() {
-        let args = OptionsArgs {
-            niterations: Some(123),
-            no_progress: true,
-            ..Default::default()
-        };
-        let mut opt: Options<f64, 3> = Options::default();
-        args.apply_to(&mut opt);
-        assert_eq!(opt.niterations, 123);
-        assert!(!opt.progress);
     }
 }
