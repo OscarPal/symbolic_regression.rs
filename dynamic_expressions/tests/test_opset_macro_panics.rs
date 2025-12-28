@@ -1,16 +1,15 @@
 mod common;
 
-use common::{Op1, TestOps};
+use common::TestOps;
 use dynamic_expressions::dispatch::{DiffKernelCtx, EvalKernelCtx, GradKernelCtx, GradRef, SrcRef};
-use dynamic_expressions::{EvalOptions, OpId, OperatorSet};
+use dynamic_expressions::operator_enum::builtin;
+use dynamic_expressions::{EvalOptions, HasOp, OpId, OperatorSet};
 
 #[test]
 fn opset_op_names_none_infix_branch_is_exercised() {
     // Cos is a non-infix operator, so `name` returns its NAME.
-    let name = TestOps::name(OpId {
-        arity: 1,
-        id: Op1::Cos as u16,
-    });
+    let op = <TestOps as HasOp<builtin::Cos>>::op_id();
+    let name = TestOps::name(op);
     assert_eq!(name, "cos");
 }
 

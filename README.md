@@ -99,42 +99,45 @@ fn main() {
 
 ## Custom operators
 
-Define light-weight operator sets with inline evaluation and derivatives using the `custom_opset!` macro (re-exported from `symbolic_regression`):
+Define custom operators with `op!`, then build an operator set with `opset!`:
 
 ```rust
-use symbolic_regression::custom_opset;
 use symbolic_regression::prelude::*;
+use symbolic_regression::{op, opset};
 
-custom_opset! {
+op!(Square for f64 {
+    eval: |[x]| { x * x },
+    partial: |[x], _idx| { 2.0 * x },
+});
+
+op!(Exp for f64 {
+    eval: |[x]| { x.exp() },
+    partial: |[x], _idx| { x.exp() },
+});
+
+op!(Add for f64 {
+    infix: "+",
+    commutative: true,
+    associative: true,
+    eval: |[x, y]| { x + y },
+    partial: |[_x, _y], _idx| { 1.0 },
+});
+
+op!(Sub for f64 {
+    infix: "-",    // optional
+    complexity: 2, // optional
+    eval: |[x, y]| { x - y },
+    partial: |[_x, _y], idx| { if idx == 0 { 1.0 } else { -1.0 } },
+});
+
+opset! {
     pub struct CustomOps<f64> {
-        1 {
-            square {
-                eval(args) { args[0] * args[0] },
-                partial(args, _idx) { 2.0 * args[0] },
-            }
-            exp {
-                eval(args) { args[0].exp() },
-                partial(args, _idx) { args[0].exp() },
-            }
-        }
-        2 {
-            add {
-                eval(args) { args[0] + args[1] },
-                partial(_args, _idx) { 1.0 },
-            }
-            sub {
-                infix: "-",    // optional
-                complexity: 2, // optional
-                eval(args) { args[0] - args[1] },
-                partial(_args, idx) {
-                    if idx == 0 { 1.0 } else { -1.0 }
-                },
-            }
-        }
+        1 => { Square, Exp }
+        2 => { Add, Sub }
     }
 }
 
-let operators = CustomOps::from_names_by_arity(&["square", "exp"], &["add", "sub"], &[]).unwrap();
+let operators = CustomOps::from_names_by_arity([&["square", "exp"], &["add", "sub"]]).unwrap();
 let options = Options::<f64, _> { operators, ..Default::default() };
 ```
 

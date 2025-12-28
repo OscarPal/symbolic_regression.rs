@@ -1,12 +1,15 @@
 use ndarray::{Array1, Array2};
 use symbolic_regression::{Dataset, MutationWeights, Operators, Options, equation_search};
 
-symbolic_regression::custom_opset! {
-    struct CustomOps<T = f64>;
+symbolic_regression::op!(Square for f64 {
+    eval: |[x]| { x * x },
+    partial: |[x], _idx| { 2.0 * x },
+});
 
-    1 => {
-        square { eval: |[x]| x * x, partial: |[x]| 2.0 * x },
-    },
+symbolic_regression::opset! {
+    struct CustomOps<f64> {
+        1 => { Square }
+    }
 }
 
 #[test]

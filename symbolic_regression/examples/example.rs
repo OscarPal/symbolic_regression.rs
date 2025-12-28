@@ -26,8 +26,9 @@ fn main() {
 
     let dataset = Dataset::new(x, y);
 
+    let empty: [&str; 0] = [];
     let operators =
-        Operators::<D>::from_names_by_arity::<BuiltinOpsF32>(&["cos", "exp", "sin"], &["+", "-", "*", "/"], &[])
+        Operators::<D>::from_names_by_arity::<BuiltinOpsF32>([&["cos", "exp", "sin"], &["+", "-", "*", "/"], &empty])
             .unwrap();
 
     let options = Options::<f32, D> {

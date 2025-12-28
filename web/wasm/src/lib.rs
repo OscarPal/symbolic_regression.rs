@@ -200,8 +200,12 @@ impl WasmSearch {
         let binary_refs: Vec<&str> = binary.iter().map(|s| s.as_str()).collect();
         let ternary_refs: Vec<&str> = ternary.iter().map(|s| s.as_str()).collect();
 
-        let operators = Operators::<3>::from_names_by_arity::<BuiltinOpsF64>(&unary_refs, &binary_refs, &ternary_refs)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let operators = Operators::<3>::from_names_by_arity::<BuiltinOpsF64>([
+            unary_refs.as_slice(),
+            binary_refs.as_slice(),
+            ternary_refs.as_slice(),
+        ])
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let (headers, rows) = parse_csv_to_rows(&csv_text, opts.has_headers).map_err(|e| JsValue::from_str(&e))?;
 

@@ -24,59 +24,42 @@ const RTOL_FD: f64 = 1e-7;
 const ATOL_EXACT: f64 = 1e-12;
 const RTOL_EXACT: f64 = 1e-12;
 
-dynamic_expressions::custom_opset! {
+dynamic_expressions::op!(Sin for f64 {
+    eval: |[x]| { x.sin() },
+    partial: |[x], _idx| { x.cos() },
+});
+
+dynamic_expressions::op!(Cos for f64 {
+    eval: |[x]| { x.cos() },
+    partial: |[x], _idx| { -x.sin() },
+});
+
+dynamic_expressions::op!(Add for f64 {
+    infix: "+",
+    commutative: true,
+    associative: true,
+    eval: |[x, y]| { x + y },
+    partial: |[_x, _y], _idx| { 1.0 },
+});
+
+dynamic_expressions::op!(Sub for f64 {
+    infix: "-",
+    eval: |[x, y]| { x - y },
+    partial: |[_x, _y], idx| { if idx == 0 { 1.0 } else { -1.0 } },
+});
+
+dynamic_expressions::op!(Mul for f64 {
+    infix: "*",
+    commutative: true,
+    associative: true,
+    eval: |[x, y]| { x * y },
+    partial: |[x, y], idx| { if idx == 0 { y } else { x } },
+});
+
+dynamic_expressions::opset! {
     struct TestOps<f64> {
-        1 {
-            sin {
-                eval(args) { args[0].sin() },
-                partial(args, idx) {
-                    match idx {
-                        0 => args[0].cos(),
-                        _ => unreachable!(),
-                    }
-                },
-            }
-            cos {
-                eval(args) { args[0].cos() },
-                partial(args, idx) {
-                    match idx {
-                        0 => -args[0].sin(),
-                        _ => unreachable!(),
-                    }
-                },
-            }
-        }
-        2 {
-            add {
-                eval(args) { args[0] + args[1] },
-                partial(_args, idx) {
-                    match idx {
-                        0 | 1 => 1.0,
-                        _ => unreachable!(),
-                    }
-                },
-            }
-            sub {
-                eval(args) { args[0] - args[1] },
-                partial(_args, idx) {
-                    match idx {
-                        0 => 1.0,
-                        1 => -1.0,
-                        _ => unreachable!(),
-                    }
-                },
-            }
-            mul {
-                eval(args) { args[0] * args[1] },
-                partial(args, idx) {
-                    match idx {
-                        0 => args[1],
-                        1 => args[0],
-                        _ => unreachable!(),
-                    }
-                },
-            }
-        }
+        1 => { Sin, Cos }
+        2 => { Add, Sub, Mul }
     }
 }
 

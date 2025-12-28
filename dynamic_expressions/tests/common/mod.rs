@@ -1,4 +1,5 @@
 use approx::assert_relative_eq;
+use dynamic_expressions::operator_enum::builtin::*;
 use dynamic_expressions::utils::ZipEq;
 use dynamic_expressions::{
     DiffContext, EvalOptions, GradContext, PNode, PostfixExpr, eval_diff_tree_array, eval_grad_tree_array,
@@ -7,11 +8,10 @@ use dynamic_expressions::{
 use ndarray::{Array2, ArrayView2};
 
 dynamic_expressions::opset! {
-    pub struct TestOps<f64>;
-    ops {
-        (1, Op1) { Cos, Sin, Exp, Log, Neg, }
-        (2, Op2) { Add, Sub, Mul, Div, }
-        (3, Op3) { Fma, }
+    pub struct TestOps<f64> {
+        1 => { Cos, Sin, Exp, Log, Neg }
+        2 => { Add, Sub, Mul, Div }
+        3 => { Fma }
     }
 }
 

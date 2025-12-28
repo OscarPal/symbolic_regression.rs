@@ -35,12 +35,11 @@ pub mod bench;
 pub use check_constraints::{NestedConstraints, OpConstraints};
 pub use complexity::compute_complexity;
 pub use dataset::{Dataset, TaggedDataset};
-#[doc(hidden)]
-pub use dynamic_expressions::custom_opset as __dynamic_expressions_custom_opset;
+pub use dynamic_expressions::{op, opset};
 pub use hall_of_fame::HallOfFame;
 pub use loss_functions::{LossKind, epsilon_insensitive, huber, log_cosh, lp, mae, make_loss, mse, quantile, rmse};
 pub use operator_library::OperatorLibrary;
-pub use operators::{OperatorSelectError, Operators};
+pub use operators::{OperatorSelectError, OperatorSetSelect, Operators};
 pub use options::{MutationWeights, Options, OutputStyle, WasmOptionsShim};
 pub use pop_member::{MemberId, PopMember};
 pub use search_utils::{SearchEngine, SearchResult, equation_search};

@@ -2,28 +2,28 @@ mod common;
 
 use common::expr_readme_like;
 use dynamic_expressions::strings::{StringTreeOptions, string_tree};
-use dynamic_expressions::{HasOp, Metadata, PNode, PostfixExpr, custom_opset};
+use dynamic_expressions::{HasOp, Metadata, PNode, PostfixExpr};
 
-custom_opset! {
+dynamic_expressions::op!(Add for f64 {
+    display: "+",
+    infix: "+",
+    commutative: true,
+    associative: true,
+    eval: |[x, y]| { x + y },
+    partial: |[_x, _y], _idx| { 1.0 },
+});
+
+dynamic_expressions::op!(Oplus for f64 {
+    display: "⊕",
+    infix: "⊕",
+    eval: |[x, y, z]| { x + y + z },
+    partial: |[_x, _y, _z], _idx| { 1.0 },
+});
+
+dynamic_expressions::opset! {
     struct Infix3Ops<f64> {
-        2 {
-            add {
-                display: "+",
-                infix: "+",
-                commutative: true,
-                associative: true,
-                eval(args) { args[0] + args[1] },
-                partial(_args, _idx) { 1.0 },
-            }
-        }
-        3 {
-            oplus {
-                display: "⊕",
-                infix: "⊕",
-                eval(args) { args[0] + args[1] + args[2] },
-                partial(_args, _idx) { 1.0 },
-            }
-        }
+        2 => { Add }
+        3 => { Oplus }
     }
 }
 
@@ -33,7 +33,7 @@ fn var_infix3(feature: u16) -> PostfixExpr<f64, Infix3Ops, 3> {
 
 fn add_infix3(x: PostfixExpr<f64, Infix3Ops, 3>, y: PostfixExpr<f64, Infix3Ops, 3>) -> PostfixExpr<f64, Infix3Ops, 3> {
     dynamic_expressions::expression_algebra::__apply_postfix::<f64, Infix3Ops, 3, 2>(
-        <Infix3Ops as HasOp<Infix3OpsAdd>>::ID,
+        <Infix3Ops as HasOp<Add>>::ID,
         [x, y],
     )
 }
@@ -44,7 +44,7 @@ fn oplus3(
     z: PostfixExpr<f64, Infix3Ops, 3>,
 ) -> dynamic_expressions::PostfixExpr<f64, Infix3Ops, 3> {
     dynamic_expressions::expression_algebra::__apply_postfix::<f64, Infix3Ops, 3, 3>(
-        <Infix3Ops as HasOp<Infix3OpsOplus>>::ID,
+        <Infix3Ops as HasOp<Oplus>>::ID,
         [x, y, z],
     )
 }

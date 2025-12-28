@@ -2,6 +2,7 @@ use criterion::{criterion_group, criterion_main};
 use dynamic_expressions::evaluate::EvalOptions;
 use dynamic_expressions::expression::PostfixExpr;
 use dynamic_expressions::node::PNode;
+use dynamic_expressions::operator_enum::builtin::*;
 use dynamic_expressions::{OperatorSet, opset};
 use ndarray::Array2;
 use num_traits::Float;
@@ -14,18 +15,16 @@ const N_TREES: usize = 100;
 const N_ROWS: usize = 1_000;
 
 opset! {
-    pub struct BenchOpsF32<f32>;
-    ops {
-        (1, UnaryF32) { Cos, Exp, }
-        (2, BinaryF32) { Add, Sub, Mul, Div, }
+    pub struct BenchOpsF32<f32> {
+        1 => { Cos, Exp }
+        2 => { Add, Sub, Mul, Div }
     }
 }
 
 opset! {
-    pub struct BenchOpsF64<f64>;
-    ops {
-        (1, UnaryF64) { Cos, Exp, }
-        (2, BinaryF64) { Add, Sub, Mul, Div, }
+    pub struct BenchOpsF64<f64> {
+        1 => { Cos, Exp }
+        2 => { Add, Sub, Mul, Div }
     }
 }
 

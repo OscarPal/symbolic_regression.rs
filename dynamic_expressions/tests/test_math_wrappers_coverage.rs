@@ -1,10 +1,10 @@
+use dynamic_expressions::operator_enum::builtin::*;
 use dynamic_expressions::{EvalOptions, PNode, PostfixExpr, eval_tree_array};
 use ndarray::Array2;
 
 dynamic_expressions::opset! {
-    pub struct AllOps<f64>;
-    ops {
-        (1, U1) {
+    pub struct AllOps<f64> {
+        1 => {
             Sin, Cos, Tan,
             Asin, Acos, Atan,
             Sinh, Cosh, Tanh,
@@ -17,12 +17,12 @@ dynamic_expressions::opset! {
             Sign, Identity,
             Neg,
         }
-        (2, B2) {
+        2 => {
             Add, Sub, Mul, Div,
             Pow, Atan2,
             Min, Max,
         }
-        (3, T3) { Fma, Clamp, }
+        3 => { Fma, Clamp }
     }
 }
 

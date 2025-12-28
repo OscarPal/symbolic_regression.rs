@@ -13,92 +13,6 @@ pub struct Operators<const D: usize> {
     pub ops_by_arity: [Vec<OpId>; D],
 }
 
-#[macro_export]
-#[doc(hidden)]
-macro_rules! __sr_custom_opset_bind_idx {
-    ($idx_val:ident, $idx_name:pat_param) => {
-        let $idx_name = $idx_val;
-    };
-    ($idx_val:ident) => {};
-}
-
-#[macro_export]
-macro_rules! custom_opset {
-    // New DSL:
-    //
-    // custom_opset! {
-    //     pub struct CustomOps<T = f64>;
-    //
-    //     1 => {
-    //         square { eval: |[x]| x * x, partial: |[x]| 2.0 * x },
-    //     },
-    // }
-    (
-        $(#[$meta:meta])*
-        $vis:vis struct $Ops:ident<$T:ident = $t:ty>;
-
-        $(
-            $arity:literal => {
-                $(
-                    $op_name:ident {
-                        $(display: $display:expr,)?
-                        $(infix: $infix:expr,)?
-                        $(commutative: $commutative:expr,)?
-                        $(associative: $associative:expr,)?
-                        $(complexity: $complexity:expr,)?
-                        eval: |[ $($eval_pat:pat),* $(,)? ]| $eval_body:expr,
-                        partial: |[ $($partial_pat:pat),* $(,)? ] $(, $idx:pat_param)?| $partial_body:expr $(,)?
-                    }
-                ),* $(,)?
-            }
-        ),+ $(,)?
-    ) => {
-        $crate::__dynamic_expressions_custom_opset! {
-            $(#[$meta])*
-            $vis struct $Ops<$t> {
-                $(
-                    $arity {
-                        $(
-                            $op_name {
-                                $(display: $display,)?
-                                $(infix: $infix,)?
-                                $(commutative: $commutative,)?
-                                $(associative: $associative,)?
-                                $(complexity: $complexity,)?
-                                eval: |__sr_custom_opset_args: &[$t; $arity]| {
-                                    let [ $($eval_pat),* ] = *__sr_custom_opset_args;
-                                    $eval_body
-                                },
-                                partial: |__sr_custom_opset_args: &[$t; $arity], __sr_custom_opset_idx: usize| {
-                                    let [ $($partial_pat),* ] = *__sr_custom_opset_args;
-                                    $crate::__sr_custom_opset_bind_idx!(
-                                        __sr_custom_opset_idx $(, $idx)?
-                                    );
-                                    $partial_body
-                                },
-                            }
-                        )*
-                    }
-                )*
-            }
-        }
-    };
-
-    // Legacy syntax (passthrough to `dynamic_expressions::custom_opset!`).
-    (
-        $(#[$meta:meta])* $vis:vis struct $Ops:ident<$t:ty> {
-            $( $arity:literal { $( $op_name:ident { $($op_body:tt)* } )* } )*
-        }
-    ) => {
-        $crate::__dynamic_expressions_custom_opset! {
-            $(#[$meta])*
-            $vis struct $Ops<$t> {
-                $( $arity { $( $op_name { $($op_body)* } )* } )*
-            }
-        }
-    };
-}
-
 #[derive(Debug, Clone)]
 pub enum OperatorSelectError {
     Lookup(dynamic_expressions::LookupError),
@@ -200,20 +114,17 @@ impl<const D: usize> Operators<D> {
         Ok(out)
     }
 
-    pub fn from_names_by_arity<Ops: OperatorSet>(
-        unary: &[&str],
-        binary: &[&str],
-        ternary: &[&str],
-    ) -> Result<Self, OperatorSelectError> {
-        if unary.is_empty() && binary.is_empty() && ternary.is_empty() {
+    pub fn from_names_by_arity<Ops: OperatorSet>(names_by_arity: [&[&str]; D]) -> Result<Self, OperatorSelectError> {
+        if names_by_arity.iter().all(|toks| toks.is_empty()) {
             return Err(OperatorSelectError::Empty);
         }
 
         let mut out = Operators::new();
         let mut seen: HashSet<(u8, u16)> = HashSet::new();
 
-        for (expected, toks) in [(1u8, unary), (2u8, binary), (3u8, ternary)] {
-            for &tok in toks {
+        for (arity_minus_one, toks) in names_by_arity.iter().enumerate() {
+            let expected: u8 = (arity_minus_one + 1).try_into().expect("arity fits in u8");
+            for &tok in *toks {
                 let op = Ops::lookup_with_arity(tok, expected).map_err(OperatorSelectError::Lookup)?;
                 if op.arity != expected {
                     return Err(OperatorSelectError::ArityMismatch {
@@ -240,6 +151,17 @@ impl<const D: usize> Operators<D> {
         Ok(out)
     }
 }
+
+/// Convenience selection for any [`dynamic_expressions::OperatorSet`].
+///
+/// This is intentionally opinionated: `D` is inferred from the length of the passed array.
+pub trait OperatorSetSelect: OperatorSet {
+    fn from_names_by_arity<const D: usize>(names_by_arity: [&[&str]; D]) -> Result<Operators<D>, OperatorSelectError> {
+        Operators::<D>::from_names_by_arity::<Self>(names_by_arity)
+    }
+}
+
+impl<T: OperatorSet> OperatorSetSelect for T {}
 
 impl<const D: usize> Default for Operators<D> {
     fn default() -> Self {
@@ -335,29 +257,34 @@ mod tests {
 
     use super::*;
 
-    crate::custom_opset! {
-        struct V2Ops<T = f64>;
+    dynamic_expressions::op!(Square for f64 {
+        eval: |[x]| { x * x },
+        partial: |[x], _idx| { 2.0 * x },
+    });
 
-        1 => {
-            square { eval: |[x]| x * x, partial: |[x]| 2.0 * x },
-        },
+    dynamic_expressions::opset! {
+        struct V2Ops<f64> {
+            1 => { Square }
+        }
     }
 
     #[test]
     fn from_names_by_arity_resolves_dash_by_arity() {
+        let empty: [&str; 0] = [];
+
         let unary = ["-"];
-        let ops = Operators::<3>::from_names_by_arity::<BuiltinOpsF64>(&unary, &[], &[]).unwrap();
+        let ops = Operators::<3>::from_names_by_arity::<BuiltinOpsF64>([&unary, &empty, &empty]).unwrap();
         assert_eq!(ops.nops(1), 1);
         assert_eq!(ops.ops_by_arity[0][0], <BuiltinOpsF64 as HasOp<builtin::Neg>>::op_id());
 
         let binary = ["-"];
-        let ops = Operators::<3>::from_names_by_arity::<BuiltinOpsF64>(&[], &binary, &[]).unwrap();
+        let ops = Operators::<3>::from_names_by_arity::<BuiltinOpsF64>([&empty, &binary, &empty]).unwrap();
         assert_eq!(ops.nops(2), 1);
         assert_eq!(ops.ops_by_arity[1][0], <BuiltinOpsF64 as HasOp<builtin::Sub>>::op_id());
     }
 
     #[test]
-    fn v2_custom_opset_dsl_builds_operator_set() {
+    fn v2_opset_dsl_builds_operator_set() {
         let ops = Operators::<3>::from_names::<V2Ops>(&["square"]).unwrap();
         assert_eq!(ops.nops(1), 1);
     }

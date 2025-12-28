@@ -89,11 +89,15 @@ fn random_expr<Ops2, const D2: usize, R: Rng>(
 }
 
 fn make_ops_search() -> Operators<D> {
-    Operators::<D>::from_names_by_arity::<Ops>(&["exp", "abs"], &["+", "-", "*", "/"], &[]).expect("search operators")
+    let empty: [&str; 0] = [];
+    Operators::<D>::from_names_by_arity::<Ops>([&["exp", "abs"], &["+", "-", "*", "/"], &empty])
+        .expect("search operators")
 }
 
 fn make_ops_utils() -> Operators<D> {
-    Operators::<D>::from_names_by_arity::<Ops>(&["sin", "cos"], &["+", "-", "*", "/"], &[]).expect("utils operators")
+    let empty: [&str; 0] = [];
+    Operators::<D>::from_names_by_arity::<Ops>([&["sin", "cos"], &["+", "-", "*", "/"], &empty])
+        .expect("utils operators")
 }
 
 fn make_search_options(seed: u64) -> Options<T, D> {
