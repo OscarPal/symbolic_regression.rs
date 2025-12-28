@@ -29,38 +29,51 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Publish dynamic_expressions
+      - name: Publish crates (skip if already on crates.io)
         shell: bash
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           set -euo pipefail
-          CRATE=dynamic_expressions
-          VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print([p["version"] for p in d["packages"] if p["name"]=="dynamic_expressions"][0])')
-          if curl -sSf "https://crates.io/api/v1/crates/$CRATE" | grep -q "\"num\":\"$VERSION\""; then
-            echo "$CRATE $VERSION already exists on crates.io – skipping publish."
-          else
-            cargo publish -p "$CRATE" --verbose --no-verify --token "${{ secrets.CARGO_REGISTRY_TOKEN }}"
-          fi
 
-      - name: Publish symbolic_regression
-        shell: bash
-        run: |
-          set -euo pipefail
-          CRATE=symbolic_regression
-          VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print([p["version"] for p in d["packages"] if p["name"]=="symbolic_regression"][0])')
-          if curl -sSf "https://crates.io/api/v1/crates/$CRATE" | grep -q "\"num\":\"$VERSION\""; then
-            echo "$CRATE $VERSION already exists on crates.io – skipping publish."
-          else
-            cargo publish -p "$CRATE" --verbose --no-verify --token "${{ secrets.CARGO_REGISTRY_TOKEN }}"
-          fi
+          version_of() {
+            local crate="$1"
+            cargo metadata --no-deps --format-version 1 \
+              | python3 -c 'import json,sys; crate=sys.argv[1]; d=json.load(sys.stdin); print([p["version"] for p in d["packages"] if p["name"]==crate][0])' \
+                  "$crate"
+          }
 
-      - name: Publish symbolic_regression_wasm
-        shell: bash
-        run: |
-          set -euo pipefail
-          CRATE=symbolic_regression_wasm
-          VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print([p["version"] for p in d["packages"] if p["name"]=="symbolic_regression_wasm"][0])')
-          if curl -sSf "https://crates.io/api/v1/crates/$CRATE" | grep -q "\"num\":\"$VERSION\""; then
-            echo "$CRATE $VERSION already exists on crates.io – skipping publish."
-          else
-            cargo publish -p "$CRATE" --verbose --no-verify --token "${{ secrets.CARGO_REGISTRY_TOKEN }}"
-          fi
+          crates_io_status() {
+            local crate="$1"
+            local version="$2"
+            curl -sS -o /dev/null -w "%{http_code}" \
+              "https://crates.io/api/v1/crates/${crate}/${version}" || true
+          }
+
+          maybe_publish() {
+            local crate="$1"
+            local version
+            version="$(version_of "$crate")"
+
+            local code
+            code="$(crates_io_status "$crate" "$version")"
+
+            if [ "$code" = "200" ]; then
+              echo "${crate} ${version} already exists on crates.io - skipping."
+              return 0
+            fi
+
+            if [ "$code" = "404" ]; then
+              echo "${crate} ${version} not found on crates.io - publishing."
+              cargo publish -p "$crate" --verbose --no-verify --token "$CARGO_REGISTRY_TOKEN"
+              return 0
+            fi
+
+            # Anything else (403 rate-limit, 5xx, network hiccup): skip rather than fail the whole job.
+            echo "crates.io check for ${crate} ${version} returned HTTP ${code}. Skipping publish to avoid false attempt."
+            return 0
+          }
+
+          maybe_publish dynamic_expressions
+          maybe_publish symbolic_regression
+          maybe_publish symbolic_regression_wasm
