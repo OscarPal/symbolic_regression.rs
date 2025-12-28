@@ -1,7 +1,5 @@
 use dynamic_expressions::operator_enum::builtin;
-use dynamic_expressions::{HasOp, OperatorSet};
-
-use crate::operators::Operators;
+use dynamic_expressions::{HasOp, OperatorSet, Operators};
 
 pub struct OperatorLibrary;
 

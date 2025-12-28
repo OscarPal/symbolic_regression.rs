@@ -64,8 +64,7 @@ fn main() {
 
     let dataset = Dataset::new(x, y);
 
-    let operators = Operators::<D>::from_names_by_arity::<BuiltinOpsF32>(&["cos", "exp", "sin"], &["+", "-", "*", "/"], &[])
-        .unwrap();
+    let operators = BuiltinOpsF32::from_names(["cos", "exp", "sin", "+", "sub", "*", "/"]).unwrap();
 
     let options = Options::<f32, D> {
         operators,
@@ -103,7 +102,6 @@ Define custom operators with `op!`, then build an operator set with `opset!`:
 
 ```rust
 use symbolic_regression::prelude::*;
-use symbolic_regression::{op, opset};
 
 op!(Square for f64 {
     eval: |[x]| { x * x },
@@ -131,13 +129,15 @@ op!(Sub for f64 {
 });
 
 opset! {
-    pub struct CustomOps<f64> {
-        1 => { Square, Exp }
-        2 => { Add, Sub }
+    pub CustomOps for f64 {
+        Square,
+        Exp,
+        Add,
+        Sub,
     }
 }
 
-let operators = CustomOps::from_names_by_arity([&["square", "exp"], &["add", "sub"]]).unwrap();
+let operators = CustomOps::from_names(["square", "exp", "add", "sub"]).unwrap();
 let options = Options::<f64, _> { operators, ..Default::default() };
 ```
 

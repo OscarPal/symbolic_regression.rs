@@ -4,12 +4,12 @@ use csv::ReaderBuilder;
 use dynamic_expressions::operator_enum::presets::BuiltinOpsF64;
 use dynamic_expressions::strings::{StringTreeOptions, string_tree};
 use dynamic_expressions::utils::ZipEq;
-use dynamic_expressions::{EvalOptions, OpId, OperatorSet, eval_plan_array_into};
+use dynamic_expressions::{EvalOptions, OpId, OperatorSet, Operators, eval_plan_array_into};
 use fastrand::Rng;
 use ndarray::{Array1, Array2};
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value, to_value};
-use symbolic_regression::{Dataset, LossKind, Operators, Options, SearchEngine, WasmOptionsShim};
+use symbolic_regression::{Dataset, LossKind, Options, SearchEngine, WasmOptionsShim};
 use wasm_bindgen::prelude::*;
 
 type FullDatasetParts = (Dataset<f64>, Vec<String>, Option<Array1<f64>>);
@@ -196,16 +196,19 @@ impl WasmSearch {
         let unary: Vec<String> = from_value(unary_tokens).unwrap_or_default();
         let binary: Vec<String> = from_value(binary_tokens).unwrap_or_default();
         let ternary: Vec<String> = from_value(ternary_tokens).unwrap_or_default();
-        let unary_refs: Vec<&str> = unary.iter().map(|s| s.as_str()).collect();
-        let binary_refs: Vec<&str> = binary.iter().map(|s| s.as_str()).collect();
-        let ternary_refs: Vec<&str> = ternary.iter().map(|s| s.as_str()).collect();
 
-        let operators = Operators::<3>::from_names_by_arity::<BuiltinOpsF64>([
-            unary_refs.as_slice(),
-            binary_refs.as_slice(),
-            ternary_refs.as_slice(),
-        ])
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let mut toks: Vec<&str> = Vec::with_capacity(unary.len() + binary.len() + ternary.len());
+        for s in &unary {
+            toks.push(if s == "-" { "neg" } else { s.as_str() });
+        }
+        for s in &binary {
+            toks.push(if s == "-" { "sub" } else { s.as_str() });
+        }
+        for s in &ternary {
+            toks.push(s.as_str());
+        }
+
+        let operators: Operators<3> = BuiltinOpsF64::from_names(toks).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let (headers, rows) = parse_csv_to_rows(&csv_text, opts.has_headers).map_err(|e| JsValue::from_str(&e))?;
 

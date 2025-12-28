@@ -1,10 +1,10 @@
 use dynamic_expressions::expression::PostfixExpr;
 use dynamic_expressions::node::PNode;
-use dynamic_expressions::node_utils;
+use dynamic_expressions::{Operators, node_utils};
 use fastrand::Rng;
 use num_traits::Float;
 
-use crate::operators::Operators;
+use crate::operator_selection::OperatorsSampling;
 use crate::options::Options;
 use crate::random::{standard_normal, usize_range};
 

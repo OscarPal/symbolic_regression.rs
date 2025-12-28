@@ -4,6 +4,7 @@ pub trait Operator<T: Float, const A: usize> {
     const NAME: &'static str;
     const DISPLAY: &'static str = Self::NAME;
     const INFIX: Option<&'static str> = None;
+    const ALIASES: &'static [&'static str] = &[];
     const COMMUTATIVE: bool = false;
     const ASSOCIATIVE: bool = false;
     const COMPLEXITY: u16 = 1;
@@ -27,6 +28,7 @@ pub struct OpMeta {
     pub name: &'static str,
     pub display: &'static str,
     pub infix: Option<&'static str>,
+    pub aliases: &'static [&'static str],
     pub commutative: bool,
     pub associative: bool,
     pub complexity: u16,
@@ -118,7 +120,14 @@ pub trait OperatorSet: Sized {
     #[inline]
     fn matches_token(op: OpId, tok: &str) -> bool {
         let t = tok.trim();
-        t.eq_ignore_ascii_case(Self::name(op)) || t == Self::display(op) || Self::infix(op).is_some_and(|s| t == s)
+        let Some(meta) = Self::meta(op) else {
+            return false;
+        };
+
+        t.eq_ignore_ascii_case(meta.name)
+            || t == meta.display
+            || meta.infix.is_some_and(|s| t == s)
+            || meta.aliases.iter().any(|a| t.eq_ignore_ascii_case(a))
     }
 
     #[inline]

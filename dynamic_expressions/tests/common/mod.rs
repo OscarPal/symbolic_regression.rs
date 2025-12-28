@@ -8,10 +8,10 @@ use dynamic_expressions::{
 use ndarray::{Array2, ArrayView2};
 
 dynamic_expressions::opset! {
-    pub struct TestOps<f64> {
-        1 => { Cos, Sin, Exp, Log, Neg }
-        2 => { Add, Sub, Mul, Div }
-        3 => { Fma }
+    pub TestOps for f64 {
+        Cos, Sin, Exp, Log, Neg,
+        Add, Sub, Mul, Div,
+        Fma,
     }
 }
 

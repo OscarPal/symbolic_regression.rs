@@ -3,26 +3,22 @@ use dynamic_expressions::{EvalOptions, PNode, PostfixExpr, eval_tree_array};
 use ndarray::Array2;
 
 dynamic_expressions::opset! {
-    pub struct AllOps<f64> {
-        1 => {
-            Sin, Cos, Tan,
-            Asin, Acos, Atan,
-            Sinh, Cosh, Tanh,
-            Asinh, Acosh, Atanh,
-            Sec, Csc, Cot,
-            Exp, Exp2, Expm1,
-            Log, Log2, Log10, Log1p,
-            Sqrt, Cbrt,
-            Abs, Abs2, Inv,
-            Sign, Identity,
-            Neg,
-        }
-        2 => {
-            Add, Sub, Mul, Div,
-            Pow, Atan2,
-            Min, Max,
-        }
-        3 => { Fma, Clamp }
+    pub AllOps for f64 {
+        Sin, Cos, Tan,
+        Asin, Acos, Atan,
+        Sinh, Cosh, Tanh,
+        Asinh, Acosh, Atanh,
+        Sec, Csc, Cot,
+        Exp, Exp2, Expm1,
+        Log, Log2, Log10, Log1p,
+        Sqrt, Cbrt,
+        Abs, Abs2, Inv,
+        Sign, Identity,
+        Neg,
+        Add, Sub, Mul, Div,
+        Pow, Atan2,
+        Min, Max,
+        Fma, Clamp,
     }
 }
 

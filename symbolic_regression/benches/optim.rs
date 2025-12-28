@@ -6,14 +6,15 @@ use dynamic_expressions::node::PNode;
 use dynamic_expressions::operator_enum::builtin;
 use dynamic_expressions::operator_enum::presets::BuiltinOpsF32;
 use dynamic_expressions::utils::ZipEq;
-use dynamic_expressions::{HasOp, OpId};
+use dynamic_expressions::{HasOp, OpId, Operators};
 use fastrand::Rng as FastRand;
 use ndarray::{Array1, Array2};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rand_distr::StandardNormal;
+use symbolic_regression::operator_selection::OperatorsSampling;
 use symbolic_regression::{
-    Dataset, Evaluator, MemberId, NextGenerationCtx, Operators, OptimizeConstantsCtx, Options, PopMember, Population,
+    Dataset, Evaluator, MemberId, NextGenerationCtx, OptimizeConstantsCtx, Options, PopMember, Population,
     RunningSearchStatistics, TaggedDataset, best_of_sample, check_constraints, equation_search,
     insert_random_op_in_place, next_generation, optimize_constants, rotate_tree_in_place,
 };
@@ -89,15 +90,11 @@ fn random_expr<Ops2, const D2: usize, R: Rng>(
 }
 
 fn make_ops_search() -> Operators<D> {
-    let empty: [&str; 0] = [];
-    Operators::<D>::from_names_by_arity::<Ops>([&["exp", "abs"], &["+", "-", "*", "/"], &empty])
-        .expect("search operators")
+    Ops::from_names(["exp", "abs", "+", "sub", "*", "/"]).expect("search operators")
 }
 
 fn make_ops_utils() -> Operators<D> {
-    let empty: [&str; 0] = [];
-    Operators::<D>::from_names_by_arity::<Ops>([&["sin", "cos"], &["+", "-", "*", "/"], &empty])
-        .expect("utils operators")
+    Ops::from_names(["sin", "cos", "+", "sub", "*", "/"]).expect("utils operators")
 }
 
 fn make_search_options(seed: u64) -> Options<T, D> {

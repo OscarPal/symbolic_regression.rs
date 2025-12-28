@@ -42,6 +42,7 @@ macro_rules! op {
             $(name: $name:literal,)?
             $(display: $display:expr,)?
             $(infix: $infix:expr,)?
+            $(aliases: [$($alias:expr),* $(,)?],)?
             $(commutative: $commutative:expr,)?
             $(associative: $associative:expr,)?
             $(complexity: $complexity:expr,)?
@@ -64,6 +65,7 @@ macro_rules! op {
                 (None, Some(i)) => i,
                 (None, None) => $crate::op!(@name $Op $(, $name)?),
             };
+            const ALIASES: &'static [&'static str] = &[$($($alias),*,)?];
             const COMMUTATIVE: bool = $crate::op!(@commutative $($commutative)?);
             const ASSOCIATIVE: bool = $crate::op!(@associative $($associative)?);
             const COMPLEXITY: u16 = $crate::op!(@complexity $($complexity)?);
@@ -99,6 +101,7 @@ macro_rules! op {
             $(name: $name:literal,)?
             $(display: $display:expr,)?
             $(infix: $infix:expr,)?
+            $(aliases: [$($alias:expr),* $(,)?],)?
             $(commutative: $commutative:expr,)?
             $(associative: $associative:expr,)?
             $(complexity: $complexity:expr,)?
@@ -121,6 +124,7 @@ macro_rules! op {
                 (None, Some(i)) => i,
                 (None, None) => $crate::op!(@name $Op $(, $name)?),
             };
+            const ALIASES: &'static [&'static str] = &[$($($alias),*,)?];
             const COMMUTATIVE: bool = $crate::op!(@commutative $($commutative)?);
             const ASSOCIATIVE: bool = $crate::op!(@associative $($associative)?);
             const COMPLEXITY: u16 = $crate::op!(@complexity $($complexity)?);
@@ -375,12 +379,9 @@ pub mod builtin {
         associative: true,
         eval: |[x, y]| { x.min(y) },
         partial: |[x, y], idx| {
-            if x.is_nan() && y.is_nan() {
-                half::<T>()
-            } else if x.is_nan() {
-                if idx == 0 { T::zero() } else { T::one() }
-            } else if y.is_nan() {
-                if idx == 0 { T::one() } else { T::zero() }
+            #[allow(clippy::collapsible_else_if)]
+            if x.is_nan() || y.is_nan() {
+                T::nan()
             } else if idx == 0 {
                 if x < y { T::one() } else if x > y { T::zero() } else { half::<T>() }
             } else {
@@ -394,12 +395,9 @@ pub mod builtin {
         associative: true,
         eval: |[x, y]| { x.max(y) },
         partial: |[x, y], idx| {
-            if x.is_nan() && y.is_nan() {
-                half::<T>()
-            } else if x.is_nan() {
-                if idx == 0 { T::zero() } else { T::one() }
-            } else if y.is_nan() {
-                if idx == 0 { T::one() } else { T::zero() }
+            #[allow(clippy::collapsible_else_if)]
+            if x.is_nan() || y.is_nan() {
+                T::nan()
             } else if idx == 0 {
                 if x > y { T::one() } else if x < y { T::zero() } else { half::<T>() }
             } else {
@@ -417,13 +415,10 @@ pub mod builtin {
         eval: |[x, lo, hi]| {
             // `Float::clamp` may panic if `lo > hi`, but SR might violate this,
             // so we handle it with a NaN.
-            if lo <= hi {
-                x.clamp(lo, hi)
-            } else {
-                T::nan()
-            }
+            if lo <= hi { x.clamp(lo, hi) } else { T::nan() }
         },
         partial: |[x, lo, hi], idx| {
+            #[allow(clippy::collapsible_else_if)]
             if idx == 0 {
                 if x < lo || x > hi { T::zero() } else { T::one() }
             } else if idx == 1 {
@@ -436,49 +431,27 @@ pub mod builtin {
 }
 
 pub mod presets {
-    use crate::operator_enum::builtin;
+    use crate::operator_enum::builtin::*;
     use crate::opset;
 
     // A convenient, batteries-included opset so downstream crates (like `symbolic_regression`)
     // don't need to define their own `Ops` type for common scalar use cases.
 
     opset! {
-        pub struct BuiltinOpsF32<f32> {
-            1 => {
-                Abs = builtin::Abs, Abs2 = builtin::Abs2, Acos = builtin::Acos, Acosh = builtin::Acosh,
-                Asin = builtin::Asin, Asinh = builtin::Asinh, Atan = builtin::Atan, Atanh = builtin::Atanh,
-                Cbrt = builtin::Cbrt, Cos = builtin::Cos, Cosh = builtin::Cosh, Cot = builtin::Cot,
-                Csc = builtin::Csc, Exp = builtin::Exp, Exp2 = builtin::Exp2, Expm1 = builtin::Expm1,
-                Identity = builtin::Identity, Inv = builtin::Inv, Log = builtin::Log, Log1p = builtin::Log1p,
-                Log2 = builtin::Log2, Log10 = builtin::Log10, Neg = builtin::Neg, Sec = builtin::Sec,
-                Sign = builtin::Sign, Sin = builtin::Sin, Sinh = builtin::Sinh, Sqrt = builtin::Sqrt,
-                Tan = builtin::Tan, Tanh = builtin::Tanh,
-            }
-            2 => {
-                Add = builtin::Add, Atan2 = builtin::Atan2, Div = builtin::Div, Max = builtin::Max,
-                Min = builtin::Min, Mul = builtin::Mul, Pow = builtin::Pow, Sub = builtin::Sub,
-            }
-            3 => { Clamp = builtin::Clamp, Fma = builtin::Fma, }
+        pub BuiltinOpsF32 for f32 {
+            Abs, Abs2, Acos, Acosh, Asin, Asinh, Atan, Atanh, Cbrt, Cos, Cosh, Cot, Csc, Exp, Exp2, Expm1,
+            Identity, Inv, Log, Log1p, Log2, Log10, Neg, Sec, Sign, Sin, Sinh, Sqrt, Tan, Tanh,
+            Add, Atan2, Div, Max, Min, Mul, Pow, Sub,
+            Clamp, Fma,
         }
     }
 
     opset! {
-        pub struct BuiltinOpsF64<f64> {
-            1 => {
-                Abs = builtin::Abs, Abs2 = builtin::Abs2, Acos = builtin::Acos, Acosh = builtin::Acosh,
-                Asin = builtin::Asin, Asinh = builtin::Asinh, Atan = builtin::Atan, Atanh = builtin::Atanh,
-                Cbrt = builtin::Cbrt, Cos = builtin::Cos, Cosh = builtin::Cosh, Cot = builtin::Cot,
-                Csc = builtin::Csc, Exp = builtin::Exp, Exp2 = builtin::Exp2, Expm1 = builtin::Expm1,
-                Identity = builtin::Identity, Inv = builtin::Inv, Log = builtin::Log, Log1p = builtin::Log1p,
-                Log2 = builtin::Log2, Log10 = builtin::Log10, Neg = builtin::Neg, Sec = builtin::Sec,
-                Sign = builtin::Sign, Sin = builtin::Sin, Sinh = builtin::Sinh, Sqrt = builtin::Sqrt,
-                Tan = builtin::Tan, Tanh = builtin::Tanh,
-            }
-            2 => {
-                Add = builtin::Add, Atan2 = builtin::Atan2, Div = builtin::Div, Max = builtin::Max,
-                Min = builtin::Min, Mul = builtin::Mul, Pow = builtin::Pow, Sub = builtin::Sub,
-            }
-            3 => { Clamp = builtin::Clamp, Fma = builtin::Fma, }
+        pub BuiltinOpsF64 for f64 {
+            Abs, Abs2, Acos, Acosh, Asin, Asinh, Atan, Atanh, Cbrt, Cos, Cosh, Cot, Csc, Exp, Exp2, Expm1,
+            Identity, Inv, Log, Log1p, Log2, Log10, Neg, Sec, Sign, Sin, Sinh, Sqrt, Tan, Tanh,
+            Add, Atan2, Div, Max, Min, Mul, Pow, Sub,
+            Clamp, Fma,
         }
     }
 }
@@ -489,15 +462,8 @@ pub mod presets {
 
 #[macro_export]
 macro_rules! opset {
-    // Compute the maximum arity.
-    (@max_arity $a:literal) => { $a as u8 };
-    (@max_arity $a:literal, $($rest:literal),+ $(,)?) => {
-        if $a as u8 > $crate::opset!(@max_arity $($rest),+) {
-            $a as u8
-        } else {
-            $crate::opset!(@max_arity $($rest),+)
-        }
-    };
+    (@count) => { 0usize };
+    (@count $head:tt $(, $tail:tt)*) => { 1usize + $crate::opset!(@count $($tail),*) };
 
     // Operator type resolution:
     // - Default: the type is `OpName` (must be in scope)
@@ -505,11 +471,20 @@ macro_rules! opset {
     (@op_ty $op_name:ident) => { $op_name };
     (@op_ty $op_name:ident = $op_path:path) => { $op_path };
 
+    (@max_op_arity $op_name:ident $(= $op_path:path)?) => {
+        <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY
+    };
+    (@max_op_arity $op_name:ident $(= $op_path:path)?, $($rest:tt)+) => {{
+        let a = <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY;
+        let b = $crate::opset!(@max_op_arity $($rest)+);
+        if a > b { a } else { b }
+    }};
+
+    // New syntax:
+    // opset! { pub MyOps for f64 { Sin, Cos, Square, ... } }
     (
-        $(#[$meta:meta])* $vis:vis struct $Ops:ident<$t:ty> {
-            $(
-                $arity:literal => { $($op_name:ident $(= $op_path:path)?),* $(,)? }
-            )*
+        $(#[$meta:meta])* $vis:vis $Ops:ident for $t:ty {
+            $($op_name:ident $(= $op_path:path)?),* $(,)?
         }
     ) => {
         $(#[$meta])*
@@ -517,114 +492,257 @@ macro_rules! opset {
         $vis struct $Ops;
 
         $crate::paste::paste! {
-            $(
+            #[allow(non_snake_case)]
+            mod [<__opset_ $Ops>] {
+                #![allow(non_upper_case_globals)]
+
+                use super::*;
+
+                const fn count_arity<const N: usize>(arities: &[u8; N], target: u8) -> usize {
+                    let mut i = 0usize;
+                    let mut n = 0usize;
+                    while i < N {
+                        if arities[i] == target {
+                            n += 1;
+                        }
+                        i += 1;
+                    }
+                    n
+                }
+
+                const fn filter_ids<const N: usize, const M: usize>(
+                    arities: &[u8; N],
+                    target: u8,
+                    ids: &[u16; N],
+                ) -> [u16; M] {
+                    let mut out = [0u16; M];
+                    let mut i = 0usize;
+                    let mut j = 0usize;
+                    while i < N {
+                        if arities[i] == target {
+                            out[j] = ids[i];
+                            j += 1;
+                        }
+                        i += 1;
+                    }
+                    out
+                }
+
                 #[repr(u16)]
                 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
                 #[allow(non_camel_case_types)]
-                enum [<__ $Ops _op_id_ $arity>] { $($op_name,)* }
-            )*
+                pub(super) enum OpId { $($op_name,)* }
+
+                $crate::paste::paste! {
+                    $(
+                        pub(super) const [<ID_ $op_name>]: u16 = OpId::$op_name as u16;
+                    )*
+                }
+
+                pub(super) const N: usize = $crate::opset!(@count $($op_name),*);
+
+                pub(super) const ARITIES: [u8; N] = [
+                    $( <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY, )*
+                ];
+
+                pub(super) const IDS: [u16; N] = [
+                    $( OpId::$op_name as u16, )*
+                ];
+
+                pub(super) const MAX_ARITY: u8 = $crate::opset!(@max_op_arity $($op_name $(= $op_path)?),*);
+                const _: () = {
+                    if MAX_ARITY > 16 {
+                        panic!("opset!: max arity > 16 is not supported");
+                    }
+                };
+
+                const COUNT_1: usize = count_arity(&ARITIES, 1);
+                const COUNT_2: usize = count_arity(&ARITIES, 2);
+                const COUNT_3: usize = count_arity(&ARITIES, 3);
+                const COUNT_4: usize = count_arity(&ARITIES, 4);
+                const COUNT_5: usize = count_arity(&ARITIES, 5);
+                const COUNT_6: usize = count_arity(&ARITIES, 6);
+                const COUNT_7: usize = count_arity(&ARITIES, 7);
+                const COUNT_8: usize = count_arity(&ARITIES, 8);
+                const COUNT_9: usize = count_arity(&ARITIES, 9);
+                const COUNT_10: usize = count_arity(&ARITIES, 10);
+                const COUNT_11: usize = count_arity(&ARITIES, 11);
+                const COUNT_12: usize = count_arity(&ARITIES, 12);
+                const COUNT_13: usize = count_arity(&ARITIES, 13);
+                const COUNT_14: usize = count_arity(&ARITIES, 14);
+                const COUNT_15: usize = count_arity(&ARITIES, 15);
+                const COUNT_16: usize = count_arity(&ARITIES, 16);
+
+                const IDS_1: [u16; COUNT_1] = filter_ids(&ARITIES, 1, &IDS);
+                const IDS_2: [u16; COUNT_2] = filter_ids(&ARITIES, 2, &IDS);
+                const IDS_3: [u16; COUNT_3] = filter_ids(&ARITIES, 3, &IDS);
+                const IDS_4: [u16; COUNT_4] = filter_ids(&ARITIES, 4, &IDS);
+                const IDS_5: [u16; COUNT_5] = filter_ids(&ARITIES, 5, &IDS);
+                const IDS_6: [u16; COUNT_6] = filter_ids(&ARITIES, 6, &IDS);
+                const IDS_7: [u16; COUNT_7] = filter_ids(&ARITIES, 7, &IDS);
+                const IDS_8: [u16; COUNT_8] = filter_ids(&ARITIES, 8, &IDS);
+                const IDS_9: [u16; COUNT_9] = filter_ids(&ARITIES, 9, &IDS);
+                const IDS_10: [u16; COUNT_10] = filter_ids(&ARITIES, 10, &IDS);
+                const IDS_11: [u16; COUNT_11] = filter_ids(&ARITIES, 11, &IDS);
+                const IDS_12: [u16; COUNT_12] = filter_ids(&ARITIES, 12, &IDS);
+                const IDS_13: [u16; COUNT_13] = filter_ids(&ARITIES, 13, &IDS);
+                const IDS_14: [u16; COUNT_14] = filter_ids(&ARITIES, 14, &IDS);
+                const IDS_15: [u16; COUNT_15] = filter_ids(&ARITIES, 15, &IDS);
+                const IDS_16: [u16; COUNT_16] = filter_ids(&ARITIES, 16, &IDS);
+
+                pub(super) const BY_ARITY: [&[u16]; 17] = [
+                    &[] as &[u16],
+                    &IDS_1,
+                    &IDS_2,
+                    &IDS_3,
+                    &IDS_4,
+                    &IDS_5,
+                    &IDS_6,
+                    &IDS_7,
+                    &IDS_8,
+                    &IDS_9,
+                    &IDS_10,
+                    &IDS_11,
+                    &IDS_12,
+                    &IDS_13,
+                    &IDS_14,
+                    &IDS_15,
+                    &IDS_16,
+                ];
+
+                pub(super) const META: [$crate::traits::OpMeta; N] = [
+                    $(
+                        $crate::traits::OpMeta {
+                            arity: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY,
+                            id: OpId::$op_name as u16,
+                            name: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<
+                                $t,
+                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize }
+                            >>::NAME,
+                            display: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<
+                                $t,
+                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize }
+                            >>::DISPLAY,
+                            infix: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<
+                                $t,
+                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize }
+                            >>::INFIX,
+                            aliases: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<
+                                $t,
+                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize }
+                            >>::ALIASES,
+                            commutative: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<
+                                $t,
+                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize }
+                            >>::COMMUTATIVE,
+                            associative: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<
+                                $t,
+                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize }
+                            >>::ASSOCIATIVE,
+                            complexity: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<
+                                $t,
+                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize }
+                            >>::COMPLEXITY,
+                        },
+                    )*
+                ];
+            }
         }
 
         impl $crate::traits::OperatorSet for $Ops {
             type T = $t;
-            const MAX_ARITY: u8 = $crate::opset!(@max_arity $($arity),*);
+            const MAX_ARITY: u8 = $crate::paste::paste! { [<__opset_ $Ops>]::MAX_ARITY };
 
+            #[inline]
             fn ops_with_arity(arity: u8) -> &'static [u16] {
-                match arity {
-                    $(
-                        $arity => &[$( $crate::paste::paste! { [<__ $Ops _op_id_ $arity>]::$op_name as u16 }, )*],
-                    )*
-                    _ => &[],
+                $crate::paste::paste! {
+                    [<__opset_ $Ops>]::BY_ARITY
+                        .get(arity as usize)
+                        .copied()
+                        .unwrap_or(&[])
                 }
             }
 
+            #[inline]
             fn meta(op: $crate::traits::OpId) -> Option<&'static $crate::traits::OpMeta> {
-                match op.arity {
-                    $(
-                        $arity => {
-                            const META: &[$crate::traits::OpMeta] = &[
-                                $(
-                                    $crate::traits::OpMeta {
-                                        arity: $arity as u8,
-                                        id: $crate::paste::paste! { [<__ $Ops _op_id_ $arity>]::$op_name as u16 },
-                                        name: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<$t, $arity>>::NAME,
-                                        display: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<$t, $arity>>::DISPLAY,
-                                        infix: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<$t, $arity>>::INFIX,
-                                        commutative: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<$t, $arity>>::COMMUTATIVE,
-                                        associative: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<$t, $arity>>::ASSOCIATIVE,
-                                        complexity: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<$t, $arity>>::COMPLEXITY,
-                                    },
-                                )*
-                            ];
-                            META.get(op.id as usize)
+                $crate::paste::paste! {
+                    [<__opset_ $Ops>]::META
+                        .get(op.id as usize)
+                        .filter(|m| m.arity == op.arity)
+                }
+            }
+
+	            #[inline]
+		            fn eval(op: $crate::traits::OpId, ctx: $crate::dispatch::EvalKernelCtx<'_, '_, $t>) -> bool {
+		                match op.id {
+		                    $(
+		                        $crate::paste::paste! { [<__opset_ $Ops>]::[<ID_ $op_name>] } => {
+		                            let expected = <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY;
+		                            debug_assert_eq!(op.arity, expected, "mismatched arity for op id {}", op.id);
+		                            $crate::evaluate::kernels::eval_nary::<
+		                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize },
+	                                $t,
+	                                $crate::opset!(@op_ty $op_name $(= $op_path)?)
+                            >(ctx.out, ctx.args, ctx.opts)
                         }
                     )*
-                    _ => None,
+                    _ => panic!("unknown op id {}", op.id),
                 }
             }
 
-            fn eval(op: $crate::traits::OpId, ctx: $crate::dispatch::EvalKernelCtx<'_, '_, $t>) -> bool {
-                match op.arity {
-                    $(
-                        $arity => match op.id {
-                            $(
-                                x if x == ($crate::paste::paste! { [<__ $Ops _op_id_ $arity>]::$op_name as u16 }) =>
-                                    $crate::evaluate::kernels::eval_nary::<$arity, $t, $crate::opset!(@op_ty $op_name $(= $op_path)?)>(
-                                        ctx.out,
-                                        ctx.args,
-                                        ctx.opts,
-                                    ),
-                            )*
-                            _ => panic!("unknown op id {} for arity {}", op.id, op.arity),
-                        },
+            #[inline]
+		            fn diff(op: $crate::traits::OpId, ctx: $crate::dispatch::DiffKernelCtx<'_, '_, $t>) -> bool {
+		                match op.id {
+		                    $(
+		                        $crate::paste::paste! { [<__opset_ $Ops>]::[<ID_ $op_name>] } => {
+		                            let expected = <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY;
+		                            debug_assert_eq!(op.arity, expected, "mismatched arity for op id {}", op.id);
+		                            $crate::evaluate::kernels::diff_nary::<
+		                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize },
+	                                $t,
+	                                $crate::opset!(@op_ty $op_name $(= $op_path)?)
+                            >(ctx.out_val, ctx.out_der, ctx.args, ctx.dargs, ctx.opts)
+                        }
                     )*
-                    _ => panic!("unsupported arity {}", op.arity),
+                    _ => panic!("unknown op id {}", op.id),
                 }
             }
 
-            fn diff(op: $crate::traits::OpId, ctx: $crate::dispatch::DiffKernelCtx<'_, '_, $t>) -> bool {
-                match op.arity {
-                    $(
-                        $arity => match op.id {
-                            $(
-                                x if x == ($crate::paste::paste! { [<__ $Ops _op_id_ $arity>]::$op_name as u16 }) =>
-                                    $crate::evaluate::kernels::diff_nary::<$arity, $t, $crate::opset!(@op_ty $op_name $(= $op_path)?)>(
-                                        ctx.out_val,
-                                        ctx.out_der,
-                                        ctx.args,
-                                        ctx.dargs,
-                                        ctx.opts,
-                                    ),
-                            )*
-                            _ => panic!("unknown op id {} for arity {}", op.id, op.arity),
-                        },
-                    )*
-                    _ => panic!("unsupported arity {}", op.arity),
-                }
-            }
-
+            #[inline]
             fn grad(op: $crate::traits::OpId, ctx: $crate::dispatch::GradKernelCtx<'_, '_, $t>) -> bool {
-                match op.arity {
-                    $(
-                        $arity => match op.id {
-                            $(
-                                x if x == ($crate::paste::paste! { [<__ $Ops _op_id_ $arity>]::$op_name as u16 }) =>
-                                    $crate::evaluate::kernels::grad_nary::<$arity, $t, $crate::opset!(@op_ty $op_name $(= $op_path)?)>(ctx),
-                            )*
-                            _ => panic!("unknown op id {} for arity {}", op.id, op.arity),
-                        },
+		                match op.id {
+		                    $(
+		                        $crate::paste::paste! { [<__opset_ $Ops>]::[<ID_ $op_name>] } => {
+		                            let expected = <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY;
+		                            debug_assert_eq!(op.arity, expected, "mismatched arity for op id {}", op.id);
+		                            $crate::evaluate::kernels::grad_nary::<
+		                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize },
+	                                $t,
+	                                $crate::opset!(@op_ty $op_name $(= $op_path)?)
+                            >(ctx)
+                        }
                     )*
-                    _ => panic!("unsupported arity {}", op.arity),
+                    _ => panic!("unknown op id {}", op.id),
                 }
             }
         }
 
         $(
-            $(
-                impl $crate::traits::HasOp<$crate::opset!(@op_ty $op_name $(= $op_path)?)> for $Ops {
-                    const ID: u16 = $crate::paste::paste! { [<__ $Ops _op_id_ $arity>]::$op_name as u16 };
-                }
-            )*
+            impl $crate::traits::HasOp<$crate::opset!(@op_ty $op_name $(= $op_path)?)> for $Ops {
+                const ID: u16 = $crate::paste::paste! { [<__opset_ $Ops>]::OpId::$op_name as u16 };
+            }
         )*
+
+        impl $Ops {
+            pub fn from_names<const D: usize, I>(
+                names: I,
+            ) -> Result<$crate::Operators<D>, $crate::OperatorSelectError>
+            where
+                I: IntoIterator,
+                I::Item: AsRef<str>,
+            {
+                $crate::Operators::<D>::from_names::<Self, I>(names)
+            }
+        }
     };
 }

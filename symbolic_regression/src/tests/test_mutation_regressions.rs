@@ -1,7 +1,7 @@
-use dynamic_expressions::HasOp;
 use dynamic_expressions::expression::{Metadata, PostfixExpr};
 use dynamic_expressions::node::PNode;
 use dynamic_expressions::operator_enum::builtin;
+use dynamic_expressions::{HasOp, Operators};
 use fastrand::Rng;
 use ndarray::{Array1, Array2};
 
@@ -11,7 +11,7 @@ use crate::dataset::TaggedDataset;
 use crate::operator_library::OperatorLibrary;
 use crate::options::MutationWeights;
 use crate::pop_member::{Evaluator, MemberId, PopMember};
-use crate::{Options, mutate, operators};
+use crate::{Options, mutate};
 
 fn leaf_expr(feature: u16) -> PostfixExpr<T, TestOps, D> {
     PostfixExpr::new(vec![PNode::Var { feature }], Vec::new(), Metadata::default())
@@ -153,7 +153,7 @@ fn add_node_includes_append_at_leaf_move() {
     );
 
     let add = <TestOps as HasOp<builtin::Add>>::op_id();
-    let mut ops = operators::Operators::<D>::new();
+    let mut ops = Operators::<D>::new();
     ops.push(add);
     let mut options = Options::<T, D> {
         operators: ops,
@@ -252,7 +252,7 @@ fn mutate_operator_can_be_a_noop_and_still_succeeds() {
     );
 
     let add = <TestOps as HasOp<builtin::Add>>::op_id();
-    let mut ops = operators::Operators::<D>::new();
+    let mut ops = Operators::<D>::new();
     ops.push(add);
 
     let mut options = Options::<T, D> {

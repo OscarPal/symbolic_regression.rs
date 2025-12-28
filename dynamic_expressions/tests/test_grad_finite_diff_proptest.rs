@@ -57,10 +57,7 @@ dynamic_expressions::op!(Mul for f64 {
 });
 
 dynamic_expressions::opset! {
-    struct TestOps<f64> {
-        1 => { Sin, Cos }
-        2 => { Add, Sub, Mul }
-    }
+    TestOps for f64 { Sin, Cos, Add, Sub, Mul }
 }
 
 #[derive(Clone, Copy, Debug)]

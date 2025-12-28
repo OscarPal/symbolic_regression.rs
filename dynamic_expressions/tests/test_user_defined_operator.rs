@@ -11,10 +11,7 @@ dynamic_expressions::op!(Square for<T> {
 });
 
 dynamic_expressions::opset! {
-    struct UserOps<f64> {
-        1 => { Sin, Square }
-        2 => { Add }
-    }
+    UserOps for f64 { Sin, Square, Add }
 }
 
 fn var(feature: u16) -> PostfixExpr<f64, UserOps, 2> {

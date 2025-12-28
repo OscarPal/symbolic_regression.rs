@@ -15,17 +15,11 @@ const N_TREES: usize = 100;
 const N_ROWS: usize = 1_000;
 
 opset! {
-    pub struct BenchOpsF32<f32> {
-        1 => { Cos, Exp }
-        2 => { Add, Sub, Mul, Div }
-    }
+    pub BenchOpsF32 for f32 { Cos, Exp, Add, Sub, Mul, Div }
 }
 
 opset! {
-    pub struct BenchOpsF64<f64> {
-        1 => { Cos, Exp }
-        2 => { Add, Sub, Mul, Div }
-    }
+    pub BenchOpsF64 for f64 { Cos, Exp, Add, Sub, Mul, Div }
 }
 
 fn random_leaf<T: Float, R: Rng>(rng: &mut R, n_features: usize, consts: &mut Vec<T>) -> PNode {

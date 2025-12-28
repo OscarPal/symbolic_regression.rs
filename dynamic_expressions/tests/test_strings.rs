@@ -21,10 +21,7 @@ dynamic_expressions::op!(Oplus for f64 {
 });
 
 dynamic_expressions::opset! {
-    struct Infix3Ops<f64> {
-        2 => { Add }
-        3 => { Oplus }
-    }
+    Infix3Ops for f64 { Add, Oplus }
 }
 
 fn var_infix3(feature: u16) -> PostfixExpr<f64, Infix3Ops, 3> {
