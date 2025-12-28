@@ -36,51 +36,39 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Publish crates (skip if already on crates.io)
+      - name: Publish crates
         shell: bash
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           set -euo pipefail
-
-          version_of() {
+      
+          publish_or_skip_if_exists() {
             local crate="$1"
-            cargo metadata --no-deps --format-version 1 \
-              | python3 -c 'import json,sys; crate=sys.argv[1]; d=json.load(sys.stdin); print([p["version"] for p in d["packages"] if p["name"]==crate][0])' \
-                  "$crate"
-          }
-
-          crates_io_status() {
-            local crate="$1"
-            local version="$2"
-            curl -sS -o /dev/null -w "%{http_code}" \
-              "https://crates.io/api/v1/crates/${crate}/${version}" || true
-          }
-
-          maybe_publish() {
-            local crate="$1"
-            local version
-            version="$(version_of "$crate")"
-
-            local code
-            code="$(crates_io_status "$crate" "$version")"
-
-            if [ "$code" = "200" ]; then
-              echo "${crate} ${version} already exists on crates.io - skipping."
+            echo "::group::cargo publish -p ${crate}"
+            set +e
+            out="$(cargo publish -p "$crate" --verbose --no-verify 2>&1)"
+            code=$?
+            set -e
+            echo "$out"
+            echo "::endgroup::"
+      
+            if [ "$code" -eq 0 ]; then
+              echo "${crate}: published"
               return 0
             fi
-
-            if [ "$code" = "404" ]; then
-              echo "${crate} ${version} not found on crates.io - publishing."
-              cargo publish -p "$crate" --verbose --no-verify --token "$CARGO_REGISTRY_TOKEN"
+      
+            if echo "$out" | grep -q "already exists on crates.io index"; then
+              echo "${crate}: already published, skipping"
               return 0
             fi
-
-            # Anything else (403 rate-limit, 5xx, network hiccup): skip rather than fail the whole job.
-            echo "crates.io check for ${crate} ${version} returned HTTP ${code}. Skipping publish to avoid false attempt."
-            return 0
+      
+            echo "${crate}: publish failed"
+            exit "$code"
           }
-
-          maybe_publish dynamic_expressions
-          maybe_publish symbolic_regression
-          maybe_publish symbolic_regression_wasm
+      
+          publish_or_skip_if_exists dynamic_expressions
+          sleep 15
+          publish_or_skip_if_exists symbolic_regression
+          sleep 15
+          publish_or_skip_if_exists symbolic_regression_wasm
