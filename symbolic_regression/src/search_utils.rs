@@ -206,7 +206,6 @@ where
                     stats_snapshot.normalize();
 
                     let result_tx = result_tx.clone();
-                    let controller = controller.clone();
                     scope.spawn(move |_| {
                         let res = execute_task(
                             full_dataset,
@@ -215,7 +214,7 @@ where
                             curmaxsize,
                             stats_snapshot,
                             pop_state,
-                            &controller,
+                            controller,
                         );
                         let _ = result_tx.send(res);
                     });
