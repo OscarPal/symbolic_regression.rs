@@ -42,7 +42,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           set -euo pipefail
-      
+
           publish_or_skip_if_exists() {
             local crate="$1"
             echo "::group::cargo publish -p ${crate}"
@@ -52,21 +52,21 @@ jobs:
             set -e
             echo "$out"
             echo "::endgroup::"
-      
+
             if [ "$code" -eq 0 ]; then
               echo "${crate}: published"
               return 0
             fi
-      
+
             if echo "$out" | grep -q "already exists on crates.io index"; then
               echo "${crate}: already published, skipping"
               return 0
             fi
-      
+
             echo "${crate}: publish failed"
             exit "$code"
           }
-      
+
           publish_or_skip_if_exists dynamic_expressions
           sleep 15
           publish_or_skip_if_exists symbolic_regression
