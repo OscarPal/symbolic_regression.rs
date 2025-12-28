@@ -11,6 +11,13 @@ on:
       CARGO_REGISTRY_TOKEN:
         required: true
 
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Git ref to publish from (tag, SHA, or branch)
+        required: true
+        type: string
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -21,7 +28,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.git_ref }}
+          ref: ${{ inputs.git_ref || github.event.inputs.git_ref }}
 
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
