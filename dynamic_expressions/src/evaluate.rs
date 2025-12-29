@@ -244,7 +244,11 @@ pub mod kernels {
 
     #[inline]
     fn __all_finite<T: Float>(out: &[T]) -> bool {
-        out.iter().all(|v| v.is_finite())
+        let mut ok = true;
+        for v in out {
+            ok &= v.is_finite();
+        }
+        ok
     }
 
     #[doc(hidden)]
@@ -491,10 +495,6 @@ pub mod kernels {
                 }
                 let v = Op::eval(&vals);
                 *outv = v;
-                if !__maybe_mark_nonfinite(v, opts, &mut complete) {
-                    out.fill(T::nan());
-                    return false;
-                }
             }
         }
 
@@ -560,22 +560,16 @@ pub mod kernels {
                     dv_out += Op::partial(&vals, j) * dvj;
                 }
                 *outd = dv_out;
-
-                if !__maybe_mark_nonfinite(v, opts, &mut complete) {
-                    out_val.fill(T::nan());
-                    out_der.fill(T::nan());
-                    return false;
-                }
-                if !__maybe_mark_nonfinite(dv_out, opts, &mut complete) {
-                    out_val.fill(T::nan());
-                    out_der.fill(T::nan());
-                    return false;
-                }
             }
         }
 
         if check_finite {
-            let finite = __all_finite(out_val);
+            let finite_val = __all_finite(out_val);
+            let finite = if A > 2 {
+                finite_val && __all_finite(out_der)
+            } else {
+                finite_val
+            };
             complete &= finite;
             if !finite && early_exit {
                 out_val.fill(T::nan());
