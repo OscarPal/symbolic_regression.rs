@@ -251,18 +251,6 @@ pub mod kernels {
         ok
     }
 
-    #[doc(hidden)]
-    #[inline]
-    pub fn __maybe_mark_nonfinite<T: Float>(v: T, opts: &EvalOptions, complete: &mut bool) -> bool {
-        if opts.check_finite && !v.is_finite() {
-            *complete = false;
-            if opts.early_exit {
-                return false;
-            }
-        }
-        true
-    }
-
     #[derive(Clone, Copy)]
     enum ArgView<'a, T> {
         Slice(&'a [T]),
