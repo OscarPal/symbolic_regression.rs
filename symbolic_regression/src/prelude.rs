@@ -12,7 +12,7 @@ pub use dynamic_expressions::{Operators, eval_diff_tree_array, eval_grad_tree_ar
 pub use crate::dataset::Dataset;
 pub use crate::operator_selection::OperatorsSampling;
 pub use crate::options::{MutationWeights, Options};
-pub use crate::search_utils::{SearchResult, equation_search};
-// Re-export common `dynamic_expressions` types/functions so callers (and examples) don't need to
-// depend on `dynamic_expressions` directly.
+pub use crate::search_utils::{SearchEngine, SearchResult, equation_search};
+// Re-export common `dynamic_expressions` macros so callers (and examples) don't need to depend on
+// `dynamic_expressions` directly.
 pub use crate::{op, opset};

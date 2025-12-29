@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.12.0](https://github.com/astroautomata/symbolic_regression.rs/compare/symbolic_regression-v0.11.0...symbolic_regression-v0.12.0) (2025-12-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* better unification of main search engine
+
+### Bug Fixes
+
+* getting time in wasm ([d28591f](https://github.com/astroautomata/symbolic_regression.rs/commit/d28591f3121d0091191ce35e0427b1693fc34fd6))
+
+
+### Code Refactoring
+
+* better unification of main search engine ([2ed34f3](https://github.com/astroautomata/symbolic_regression.rs/commit/2ed34f3a3c662072da48623c7ec026e969ddbecf))
+
 ## [0.11.0](https://github.com/astroautomata/symbolic_regression.rs/compare/symbolic_regression-v0.10.0...symbolic_regression-v0.11.0) (2025-12-27)
 
 

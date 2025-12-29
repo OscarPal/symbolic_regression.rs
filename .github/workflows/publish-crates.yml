@@ -11,6 +11,13 @@ on:
       CARGO_REGISTRY_TOKEN:
         required: true
 
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Git ref to publish from (tag, SHA, or branch)
+        required: true
+        type: string
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -21,7 +28,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.git_ref }}
+          ref: ${{ inputs.git_ref || github.event.inputs.git_ref }}
 
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -29,38 +36,39 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Publish dynamic_expressions
+      - name: Publish crates
         shell: bash
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           set -euo pipefail
-          CRATE=dynamic_expressions
-          VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print([p["version"] for p in d["packages"] if p["name"]=="dynamic_expressions"][0])')
-          if curl -sSf "https://crates.io/api/v1/crates/$CRATE" | grep -q "\"num\":\"$VERSION\""; then
-            echo "$CRATE $VERSION already exists on crates.io – skipping publish."
-          else
-            cargo publish -p "$CRATE" --verbose --no-verify --token "${{ secrets.CARGO_REGISTRY_TOKEN }}"
-          fi
 
-      - name: Publish symbolic_regression
-        shell: bash
-        run: |
-          set -euo pipefail
-          CRATE=symbolic_regression
-          VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print([p["version"] for p in d["packages"] if p["name"]=="symbolic_regression"][0])')
-          if curl -sSf "https://crates.io/api/v1/crates/$CRATE" | grep -q "\"num\":\"$VERSION\""; then
-            echo "$CRATE $VERSION already exists on crates.io – skipping publish."
-          else
-            cargo publish -p "$CRATE" --verbose --no-verify --token "${{ secrets.CARGO_REGISTRY_TOKEN }}"
-          fi
+          publish_or_skip_if_exists() {
+            local crate="$1"
+            echo "::group::cargo publish -p ${crate}"
+            set +e
+            out="$(cargo publish -p "$crate" --verbose --no-verify 2>&1)"
+            code=$?
+            set -e
+            echo "$out"
+            echo "::endgroup::"
 
-      - name: Publish symbolic_regression_wasm
-        shell: bash
-        run: |
-          set -euo pipefail
-          CRATE=symbolic_regression_wasm
-          VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print([p["version"] for p in d["packages"] if p["name"]=="symbolic_regression_wasm"][0])')
-          if curl -sSf "https://crates.io/api/v1/crates/$CRATE" | grep -q "\"num\":\"$VERSION\""; then
-            echo "$CRATE $VERSION already exists on crates.io – skipping publish."
-          else
-            cargo publish -p "$CRATE" --verbose --no-verify --token "${{ secrets.CARGO_REGISTRY_TOKEN }}"
-          fi
+            if [ "$code" -eq 0 ]; then
+              echo "${crate}: published"
+              return 0
+            fi
+
+            if echo "$out" | grep -q "already exists on crates.io index"; then
+              echo "${crate}: already published, skipping"
+              return 0
+            fi
+
+            echo "${crate}: publish failed"
+            exit "$code"
+          }
+
+          publish_or_skip_if_exists dynamic_expressions
+          sleep 15
+          publish_or_skip_if_exists symbolic_regression
+          sleep 15
+          publish_or_skip_if_exists symbolic_regression_wasm
