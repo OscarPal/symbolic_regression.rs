@@ -1,3 +1,4 @@
+use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 
 use rustc_hash::FxHasher;
@@ -45,30 +46,10 @@ impl<T, Ops, const D: usize> PostfixExpr<T, Ops, D> {
     {
         Self::new(vec![PNode::Const { idx: 0 }], vec![T::zero()], Metadata::default())
     }
-}
 
-impl<Ops, const D: usize> PostfixExpr<f32, Ops, D> {
-    pub fn fxhash(&self) -> u64 {
-        use core::hash::{Hash, Hasher};
-
+    pub fn hash_nodes(&self) -> u64 {
         let mut hasher = FxHasher::default();
         self.nodes.hash(&mut hasher);
-        for &c in &self.consts {
-            c.to_bits().hash(&mut hasher);
-        }
-        hasher.finish()
-    }
-}
-
-impl<Ops, const D: usize> PostfixExpr<f64, Ops, D> {
-    pub fn fxhash(&self) -> u64 {
-        use core::hash::{Hash, Hasher};
-
-        let mut hasher = FxHasher::default();
-        self.nodes.hash(&mut hasher);
-        for &c in &self.consts {
-            c.to_bits().hash(&mut hasher);
-        }
         hasher.finish()
     }
 }
