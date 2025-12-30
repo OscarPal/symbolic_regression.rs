@@ -1,7 +1,7 @@
+use dynamic_expressions::Operators;
 use num_traits::Float;
 
 use crate::loss_functions::{LossObject, mse};
-use crate::operators::Operators;
 
 #[rustfmt::skip]
 macro_rules! sr_mutation_weights_spec {

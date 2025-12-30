@@ -1,12 +1,13 @@
 use ndarray::{Array1, Array2};
-use symbolic_regression::{Dataset, MutationWeights, Operators, Options, equation_search};
+use symbolic_regression::{Dataset, MutationWeights, Options, equation_search};
 
-symbolic_regression::custom_opset! {
-    struct CustomOps<T = f64>;
+symbolic_regression::op!(Square for f64 {
+    eval: |[x]| { x * x },
+    partial: |[x], _idx| { 2.0 * x },
+});
 
-    1 => {
-        square { eval: |[x]| x * x, partial: |[x]| 2.0 * x },
-    },
+symbolic_regression::opset! {
+    CustomOps for f64 { Square }
 }
 
 #[test]
@@ -19,7 +20,6 @@ fn custom_operator_is_used_in_end_to_end_search() {
     let y = Array1::from_vec(y);
     let dataset = Dataset::new(x, y);
 
-    let operators = Operators::<1>::from_names::<CustomOps>(&["square"]).unwrap();
     let mutation_weights = MutationWeights {
         mutate_constant: 0.0,
         mutate_operator: 0.0,
@@ -47,7 +47,7 @@ fn custom_operator_is_used_in_end_to_end_search() {
         progress: false,
         should_optimize_constants: false,
         annealing: false,
-        operators,
+        operators: CustomOps::from_names(["square"]).unwrap(),
         mutation_weights,
         ..Default::default()
     };

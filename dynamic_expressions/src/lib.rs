@@ -12,6 +12,7 @@ pub mod operator_enum;
 pub mod operators;
 #[cfg(feature = "proptest-utils")]
 pub mod proptest_utils;
+pub mod select;
 pub mod simplify;
 pub mod strings;
 pub mod traits;
@@ -31,6 +32,7 @@ pub use crate::node_utils::{
     count_constant_nodes, count_depth, count_nodes, has_constants, has_operators, subtree_range, subtree_sizes,
     tree_mapreduce,
 };
+pub use crate::select::{OperatorSelectError, Operators};
 pub use crate::simplify::{combine_operators_in_place, simplify_in_place, simplify_tree_in_place};
 pub use crate::strings::{StringTreeOptions, print_tree, string_tree};
 pub use crate::traits::{HasOp, LookupError, OpId, OpMeta, OpTag, Operator, OperatorSet};

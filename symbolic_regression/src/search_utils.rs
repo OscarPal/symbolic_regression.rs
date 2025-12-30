@@ -720,8 +720,8 @@ mod batching_search_tests {
     use ndarray::{Array1, Array2};
 
     use super::SearchEngine;
+    use crate::Options;
     use crate::dataset::Dataset;
-    use crate::{Operators, Options};
 
     #[test]
     fn search_engine_allocates_batch_buffer_when_batching_enabled() {
@@ -739,7 +739,7 @@ mod batching_search_tests {
         let y = Array1::from_iter((0..n_rows).map(|i| i as T));
         let dataset = Dataset::new(x, y);
 
-        let operators = Operators::<D>::from_names_by_arity::<Ops>(&["sin"], &["+", "*"], &[]).expect("valid opset");
+        let operators = Ops::from_names::<D, _>(["sin", "+", "*"]).expect("valid opset");
         let options: Options<T, D> = Options {
             operators,
             batching: true,
@@ -789,7 +789,7 @@ mod batching_search_tests {
         let y = Array1::from_iter((0..n_rows).map(|i| i as T));
         let dataset = Dataset::new(x, y);
 
-        let operators = Operators::<D>::from_names_by_arity::<Ops>(&["sin"], &["+", "*"], &[]).expect("valid opset");
+        let operators = Ops::from_names::<D, _>(["sin", "+", "*"]).expect("valid opset");
         let options: Options<T, D> = Options {
             operators,
             batching: false,

@@ -1,17 +1,16 @@
 use std::time::{Duration, Instant};
 
 use ndarray::{Array1, Array2};
-use symbolic_regression::{Operators, Options, SearchEngine};
+use symbolic_regression::{Options, SearchEngine};
 
-symbolic_regression::custom_opset! {
-    struct SlowOps<T = f64>;
+symbolic_regression::op!(SlowId for f64 {
+    name: "slow_id",
+    eval: |[x]| { x },
+    partial: |[_x], _idx| { 1.0 },
+});
 
-    1 => {
-        slow_id {
-            eval: |[x]| x,
-            partial: |[_x]| 1.0
-        },
-    },
+symbolic_regression::opset! {
+    SlowOps for f64 { SlowId }
 }
 
 #[test]
@@ -22,7 +21,7 @@ fn test_timeout_under_max_iterations() {
         Array1::from_vec(vec![1.0]),
     );
 
-    let operators = Operators::<D>::from_names::<SlowOps>(&["slow_id"]).unwrap();
+    let operators = SlowOps::from_names::<D, _>(["slow_id"]).unwrap();
 
     let options = Options::<f64, D> {
         timeout_in_seconds: 0.05,

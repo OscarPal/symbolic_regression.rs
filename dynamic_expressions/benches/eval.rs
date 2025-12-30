@@ -2,6 +2,7 @@ use criterion::{criterion_group, criterion_main};
 use dynamic_expressions::evaluate::EvalOptions;
 use dynamic_expressions::expression::PostfixExpr;
 use dynamic_expressions::node::PNode;
+use dynamic_expressions::operator_enum::builtin::*;
 use dynamic_expressions::{OperatorSet, opset};
 use ndarray::Array2;
 use num_traits::Float;
@@ -14,19 +15,11 @@ const N_TREES: usize = 100;
 const N_ROWS: usize = 1_000;
 
 opset! {
-    pub struct BenchOpsF32<f32>;
-    ops {
-        (1, UnaryF32) { Cos, Exp, }
-        (2, BinaryF32) { Add, Sub, Mul, Div, }
-    }
+    pub BenchOpsF32 for f32 { Cos, Exp, Add, Sub, Mul, Div }
 }
 
 opset! {
-    pub struct BenchOpsF64<f64>;
-    ops {
-        (1, UnaryF64) { Cos, Exp, }
-        (2, BinaryF64) { Add, Sub, Mul, Div, }
-    }
+    pub BenchOpsF64 for f64 { Cos, Exp, Add, Sub, Mul, Div }
 }
 
 fn random_leaf<T: Float, R: Rng>(rng: &mut R, n_features: usize, consts: &mut Vec<T>) -> PNode {

@@ -13,11 +13,8 @@ fn nan_on_second_row_eval(args: &[f64; 1]) -> f64 {
     if args[0] == 2.0 { f64::NAN } else { args[0] }
 }
 
-fn one_partial(_args: &[f64; 1], idx: usize) -> f64 {
-    match idx {
-        0 => 1.0,
-        _ => unreachable!(),
-    }
+fn one_partial(_args: &[f64; 1], _idx: usize) -> f64 {
+    1.0
 }
 
 #[derive(Copy, Clone, Debug)]

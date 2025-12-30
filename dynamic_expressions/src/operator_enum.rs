@@ -1,3 +1,150 @@
+// -------------------------------------------------------------------------------------------------
+// Operator definition macro
+// -------------------------------------------------------------------------------------------------
+
+/// Define an operator marker type implementing [`crate::traits::Operator`] + [`crate::traits::OpTag`].
+///
+/// This is the same DSL used for builtins in `operator_enum::builtin`, but exported so downstream
+/// crates can define their own operators with identical syntax.
+#[macro_export]
+macro_rules! op {
+    (@count) => { 0usize };
+    (@count $head:tt $(, $tail:tt)*) => { 1usize + $crate::op!(@count $($tail),*) };
+
+    (@maybe $x:expr) => { Some($x) };
+    (@maybe) => { None };
+
+    (@name $Op:ident, $name:literal) => { $name };
+    (@name $Op:ident) => { $crate::paste::paste! { stringify!([<$Op:snake>]) } };
+
+    (@infix $v:expr) => { Some($v) };
+    (@infix) => { None };
+    (@commutative $v:expr) => { $v };
+    (@commutative) => { false };
+    (@associative $v:expr) => { $v };
+    (@associative) => { false };
+    (@complexity $v:expr) => { $v };
+    (@complexity) => { 1u16 };
+
+    (
+        $(#[$meta:meta])*
+        $Op:ident for<$T:ident> { $($body:tt)* }
+    ) => {
+        $crate::op!(
+            $(#[$meta])*
+            pub $Op for<$T> { $($body)* }
+        );
+    };
+
+    (
+        $(#[$meta:meta])*
+        $vis:vis $Op:ident for<$T:ident> {
+            $(name: $name:literal,)?
+            $(display: $display:expr,)?
+            $(infix: $infix:expr,)?
+            $(aliases: [$($alias:expr),* $(,)?],)?
+            $(commutative: $commutative:expr,)?
+            $(associative: $associative:expr,)?
+            $(complexity: $complexity:expr,)?
+            eval: |[$($eval_arg:pat_param),+ $(,)?]| $eval_body:block,
+            partial: |[$($partial_arg:pat_param),+ $(,)?], $idx:pat_param| $partial_body:block $(,)?
+        }
+    ) => {
+        $(#[$meta])*
+        $vis struct $Op;
+
+        impl $crate::traits::OpTag for $Op {
+            const ARITY: u8 = $crate::op!(@count $($eval_arg),+) as u8;
+        }
+
+        impl<$T: $crate::num_traits::Float> $crate::traits::Operator<$T, { $crate::op!(@count $($eval_arg),+) }> for $Op {
+            const NAME: &'static str = $crate::op!(@name $Op $(, $name)?);
+            const INFIX: Option<&'static str> = $crate::op!(@infix $($infix)?);
+            const DISPLAY: &'static str = match ($crate::op!(@maybe $( $display )?), $crate::op!(@infix $($infix)?)) {
+                (Some(d), _) => d,
+                (None, Some(i)) => i,
+                (None, None) => $crate::op!(@name $Op $(, $name)?),
+            };
+            const ALIASES: &'static [&'static str] = &[$($($alias),*,)?];
+            const COMMUTATIVE: bool = $crate::op!(@commutative $($commutative)?);
+            const ASSOCIATIVE: bool = $crate::op!(@associative $($associative)?);
+            const COMPLEXITY: u16 = $crate::op!(@complexity $($complexity)?);
+
+            #[inline]
+            fn eval(args: &[$T; { $crate::op!(@count $($eval_arg),+) }]) -> $T {
+                let [$($eval_arg),+] = *args;
+                $eval_body
+            }
+
+            #[inline]
+            fn partial(args: &[$T; { $crate::op!(@count $($partial_arg),+) }], idx: usize) -> $T {
+                let [$($partial_arg),+] = *args;
+                let $idx = idx;
+                $partial_body
+            }
+        }
+    };
+
+    (
+        $(#[$meta:meta])*
+        $Op:ident for $t:ty { $($body:tt)* }
+    ) => {
+        $crate::op!(
+            $(#[$meta])*
+            pub $Op for $t { $($body)* }
+        );
+    };
+
+    (
+        $(#[$meta:meta])*
+        $vis:vis $Op:ident for $t:ty {
+            $(name: $name:literal,)?
+            $(display: $display:expr,)?
+            $(infix: $infix:expr,)?
+            $(aliases: [$($alias:expr),* $(,)?],)?
+            $(commutative: $commutative:expr,)?
+            $(associative: $associative:expr,)?
+            $(complexity: $complexity:expr,)?
+            eval: |[$($eval_arg:pat_param),+ $(,)?]| $eval_body:block,
+            partial: |[$($partial_arg:pat_param),+ $(,)?], $idx:pat_param| $partial_body:block $(,)?
+        }
+    ) => {
+        $(#[$meta])*
+        $vis struct $Op;
+
+        impl $crate::traits::OpTag for $Op {
+            const ARITY: u8 = $crate::op!(@count $($eval_arg),+) as u8;
+        }
+
+        impl $crate::traits::Operator<$t, { $crate::op!(@count $($eval_arg),+) }> for $Op {
+            const NAME: &'static str = $crate::op!(@name $Op $(, $name)?);
+            const INFIX: Option<&'static str> = $crate::op!(@infix $($infix)?);
+            const DISPLAY: &'static str = match ($crate::op!(@maybe $( $display )?), $crate::op!(@infix $($infix)?)) {
+                (Some(d), _) => d,
+                (None, Some(i)) => i,
+                (None, None) => $crate::op!(@name $Op $(, $name)?),
+            };
+            const ALIASES: &'static [&'static str] = &[$($($alias),*,)?];
+            const COMMUTATIVE: bool = $crate::op!(@commutative $($commutative)?);
+            const ASSOCIATIVE: bool = $crate::op!(@associative $($associative)?);
+            const COMPLEXITY: u16 = $crate::op!(@complexity $($complexity)?);
+
+            #[inline]
+            fn eval(args: &[$t; { $crate::op!(@count $($eval_arg),+) }]) -> $t {
+                let [$($eval_arg),+] = *args;
+                $eval_body
+            }
+
+            #[inline]
+            fn partial(args: &[$t; { $crate::op!(@count $($partial_arg),+) }], idx: usize) -> $t {
+                let [$($partial_arg),+] = *args;
+                let $idx = idx;
+                $partial_body
+            }
+        }
+    };
+}
+
 pub mod builtin {
     use num_traits::Float;
 
@@ -5,668 +152,306 @@ pub mod builtin {
         T::one() + T::one()
     }
 
-    macro_rules! builtin_op {
-    (@name $Op:ident, $name:literal) => {
-        $name
-    };
-    (@name $Op:ident) => {
-        crate::paste::paste! { stringify!([<$Op:snake>]) }
-    };
-    (@infix $v:expr) => {
-        $v
-    };
-    (@infix) => {
-        None
-    };
-    (@commutative $v:expr) => {
-        $v
-    };
-    (@commutative) => {
-        false
-    };
-    (@associative $v:expr) => {
-        $v
-    };
-    (@associative) => {
-        false
-    };
-    (@complexity $v:expr) => {
-        $v
-    };
-    (@complexity) => {
-        1u16
-    };
-    (
-        $(#[$meta:meta])*
-        $Op:ident : $A:literal {
-            $(name: $name:literal,)?
-            $(infix: $infix:expr,)?
-            $(commutative: $commutative:expr,)?
-            $(associative: $associative:expr,)?
-            $(complexity: $complexity:expr,)?
-            eval($args:ident) $eval:block,
-            partial($pargs:ident, $idx:ident) $partial:block $(,)?
-        }
-    ) => {
-        $(#[$meta])*
-        pub struct $Op;
+    fn three<T: Float>() -> T {
+        T::one() + T::one() + T::one()
+    }
 
-        impl $crate::traits::OpTag for $Op {
-            const ARITY: u8 = $A as u8;
-        }
+    fn half<T: Float>() -> T {
+        T::from(0.5).expect("Float can represent 0.5")
+    }
 
-        impl<T: Float> $crate::traits::Operator<T, $A> for $Op {
-            const NAME: &'static str = builtin_op!(@name $Op $(, $name)?);
-            const INFIX: Option<&'static str> = builtin_op!(@infix $($infix)?);
-            const DISPLAY: &'static str = match builtin_op!(@infix $($infix)?) {
-                Some(s) => s,
-                None => builtin_op!(@name $Op $(, $name)?),
-            };
-            const COMMUTATIVE: bool = builtin_op!(@commutative $($commutative)?);
-            const ASSOCIATIVE: bool = builtin_op!(@associative $($associative)?);
-            const COMPLEXITY: u16 = builtin_op!(@complexity $($complexity)?);
+    crate::op!(Cos for<T> {
+        eval: |[x]| { x.cos() },
+        partial: |[x], _idx| { -x.sin() },
+    });
 
-            fn eval(args: &[T; $A]) -> T {
-                let $args = args;
-                $eval
-            }
+    crate::op!(Sin for<T> {
+        eval: |[x]| { x.sin() },
+        partial: |[x], _idx| { x.cos() },
+    });
 
-            fn partial(args: &[T; $A], idx: usize) -> T {
-                let $pargs = args;
-                let $idx = idx;
-                $partial
-            }
-        }
-    };
-}
-
-    builtin_op!(Cos: 1 {
-        eval(args) { args[0].cos() },
-        partial(args, idx) {
-            match idx {
-                0 => -args[0].sin(),
-                _ => unreachable!(),
-            }
+    crate::op!(Tan for<T> {
+        eval: |[x]| { x.tan() },
+        partial: |[x], _idx| {
+            let c = x.cos();
+            T::one() / (c * c)
         },
     });
 
-    builtin_op!(Sin: 1 {
-        eval(args) { args[0].sin() },
-        partial(args, idx) {
-            match idx {
-                0 => args[0].cos(),
-                _ => unreachable!(),
-            }
+    crate::op!(Asin for<T> {
+        eval: |[x]| { x.asin() },
+        partial: |[x], _idx| { T::one() / (T::one() - x * x).sqrt() },
+    });
+
+    crate::op!(Acos for<T> {
+        eval: |[x]| { x.acos() },
+        partial: |[x], _idx| { -T::one() / (T::one() - x * x).sqrt() },
+    });
+
+    crate::op!(Atan for<T> {
+        eval: |[x]| { x.atan() },
+        partial: |[x], _idx| { T::one() / (T::one() + x * x) },
+    });
+
+    crate::op!(Sinh for<T> {
+        eval: |[x]| { x.sinh() },
+        partial: |[x], _idx| { x.cosh() },
+    });
+
+    crate::op!(Cosh for<T> {
+        eval: |[x]| { x.cosh() },
+        partial: |[x], _idx| { x.sinh() },
+    });
+
+    crate::op!(Tanh for<T> {
+        eval: |[x]| { x.tanh() },
+        partial: |[x], _idx| {
+            let c = x.cosh();
+            T::one() / (c * c)
         },
     });
 
-    builtin_op!(Tan: 1 {
-        eval(args) { args[0].tan() },
-        partial(args, idx) {
-            match idx {
-                0 => {
-                    let c = args[0].cos();
-                    T::one() / (c * c)
-                }
-                _ => unreachable!(),
-            }
+    crate::op!(Asinh for<T> {
+        eval: |[x]| { x.asinh() },
+        partial: |[x], _idx| { T::one() / (x * x + T::one()).sqrt() },
+    });
+
+    crate::op!(Acosh for<T> {
+        eval: |[x]| { x.acosh() },
+        partial: |[x], _idx| { T::one() / ((x - T::one()).sqrt() * (x + T::one()).sqrt()) },
+    });
+
+    crate::op!(Atanh for<T> {
+        eval: |[x]| { x.atanh() },
+        partial: |[x], _idx| { T::one() / (T::one() - x * x) },
+    });
+
+    crate::op!(Sec for<T> {
+        eval: |[x]| { T::one() / x.cos() },
+        partial: |[x], _idx| { (T::one() / x.cos()) * x.tan() },
+    });
+
+    crate::op!(Csc for<T> {
+        eval: |[x]| { T::one() / x.sin() },
+        partial: |[x], _idx| {
+            let csc = T::one() / x.sin();
+            let cot = T::one() / x.tan();
+            -csc * cot
         },
     });
 
-    builtin_op!(Asin: 1 {
-        eval(args) { args[0].asin() },
-        partial(args, idx) {
-            match idx {
-                0 => T::one() / (T::one() - args[0] * args[0]).sqrt(),
-                _ => unreachable!(),
-            }
+    crate::op!(Cot for<T> {
+        eval: |[x]| { T::one() / x.tan() },
+        partial: |[x], _idx| {
+            let s = x.sin();
+            -T::one() / (s * s)
         },
     });
 
-    builtin_op!(Acos: 1 {
-        eval(args) { args[0].acos() },
-        partial(args, idx) {
-            match idx {
-                0 => -T::one() / (T::one() - args[0] * args[0]).sqrt(),
-                _ => unreachable!(),
-            }
+    crate::op!(Exp for<T> {
+        eval: |[x]| { x.exp() },
+        partial: |[x], _idx| { x.exp() },
+    });
+
+    crate::op!(Log for<T> {
+        eval: |[x]| { x.ln() },
+        partial: |[x], _idx| { T::one() / x },
+    });
+
+    crate::op!(Log2 for<T> {
+        eval: |[x]| { x.log2() },
+        partial: |[x], _idx| { T::one() / (x * two::<T>().ln()) },
+    });
+
+    crate::op!(Log10 for<T> {
+        eval: |[x]| { x.log10() },
+        partial: |[x], _idx| {
+            let ten = T::from(10.0).expect("Float can represent 10.0");
+            T::one() / (x * ten.ln())
         },
     });
 
-    builtin_op!(Atan: 1 {
-        eval(args) { args[0].atan() },
-        partial(args, idx) {
-            match idx {
-                0 => T::one() / (T::one() + args[0] * args[0]),
-                _ => unreachable!(),
-            }
+    crate::op!(Log1p for<T> {
+        eval: |[x]| { x.ln_1p() },
+        partial: |[x], _idx| { T::one() / (T::one() + x) },
+    });
+
+    crate::op!(Exp2 for<T> {
+        eval: |[x]| { x.exp2() },
+        partial: |[x], _idx| { x.exp2() * two::<T>().ln() },
+    });
+
+    crate::op!(Expm1 for<T> {
+        eval: |[x]| { x.exp_m1() },
+        partial: |[x], _idx| { x.exp() },
+    });
+
+    crate::op!(Sqrt for<T> {
+        eval: |[x]| { x.sqrt() },
+        partial: |[x], _idx| { T::one() / (two::<T>() * x.sqrt()) },
+    });
+
+    crate::op!(Cbrt for<T> {
+        eval: |[x]| { x.cbrt() },
+        partial: |[x], _idx| {
+            T::one() / (three::<T>() * x.cbrt().powi(2))
         },
     });
 
-    builtin_op!(Sinh: 1 {
-        eval(args) { args[0].sinh() },
-        partial(args, idx) {
-            match idx {
-                0 => args[0].cosh(),
-                _ => unreachable!(),
-            }
+    crate::op!(Abs for<T> {
+        eval: |[x]| { x.abs() },
+        partial: |[x], _idx| {
+            if x > T::zero() { T::one() } else if x < T::zero() { -T::one() } else { T::zero() }
         },
     });
 
-    builtin_op!(Cosh: 1 {
-        eval(args) { args[0].cosh() },
-        partial(args, idx) {
-            match idx {
-                0 => args[0].sinh(),
-                _ => unreachable!(),
-            }
-        },
+    crate::op!(Abs2 for<T> {
+        eval: |[x]| { x * x },
+        partial: |[x], _idx| { two::<T>() * x },
     });
 
-    builtin_op!(Tanh: 1 {
-        eval(args) { args[0].tanh() },
-        partial(args, idx) {
-            match idx {
-                0 => {
-                    let c = args[0].cosh();
-                    T::one() / (c * c)
-                }
-                _ => unreachable!(),
-            }
-        },
+    crate::op!(Inv for<T> {
+        eval: |[x]| { x.recip() },
+        partial: |[x], _idx| { -T::one() / (x * x) },
     });
 
-    builtin_op!(Asinh: 1 {
-        eval(args) { args[0].asinh() },
-        partial(args, idx) {
-            match idx {
-                0 => T::one() / (args[0] * args[0] + T::one()).sqrt(),
-                _ => unreachable!(),
-            }
-        },
+    crate::op!(Sign for<T> {
+        eval: |[x]| { x.signum() },
+        partial: |[_x], _idx| { T::zero() },
     });
 
-    builtin_op!(Acosh: 1 {
-        eval(args) { args[0].acosh() },
-        partial(args, idx) {
-            match idx {
-                0 => {
-                    let x = args[0];
-                    T::one() / ((x - T::one()).sqrt() * (x + T::one()).sqrt())
-                }
-                _ => unreachable!(),
-            }
-        },
+    crate::op!(Identity for<T> {
+        eval: |[x]| { x },
+        partial: |[_x], _idx| { T::one() },
     });
 
-    builtin_op!(Atanh: 1 {
-        eval(args) { args[0].atanh() },
-        partial(args, idx) {
-            match idx {
-                0 => T::one() / (T::one() - args[0] * args[0]),
-                _ => unreachable!(),
-            }
-        },
+    crate::op!(Neg for<T> {
+        infix: "-",
+        eval: |[x]| { -x },
+        partial: |[_x], _idx| { -T::one() },
     });
 
-    builtin_op!(Sec: 1 {
-        eval(args) { T::one() / args[0].cos() },
-        partial(args, idx) {
-            match idx {
-                0 => {
-                    let sec = T::one() / args[0].cos();
-                    sec * args[0].tan()
-                }
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Csc: 1 {
-        eval(args) { T::one() / args[0].sin() },
-        partial(args, idx) {
-            match idx {
-                0 => {
-                    let csc = T::one() / args[0].sin();
-                    let cot = T::one() / args[0].tan();
-                    -csc * cot
-                }
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Cot: 1 {
-        eval(args) { T::one() / args[0].tan() },
-        partial(args, idx) {
-            match idx {
-                0 => {
-                    let s = args[0].sin();
-                    -T::one() / (s * s)
-                }
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Exp: 1 {
-        eval(args) { args[0].exp() },
-        partial(args, idx) {
-            match idx {
-                0 => args[0].exp(),
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Log: 1 {
-        eval(args) { args[0].ln() },
-        partial(args, idx) {
-            match idx {
-                0 => T::one() / args[0],
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Log2: 1 {
-        eval(args) { args[0].log2() },
-        partial(args, idx) {
-            match idx {
-                0 => T::one() / (args[0] * two::<T>().ln()),
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Log10: 1 {
-        eval(args) { args[0].log10() },
-        partial(args, idx) {
-            match idx {
-                0 => {
-                    let ten = T::from(10.0).expect("Float can represent 10.0");
-                    T::one() / (args[0] * ten.ln())
-                }
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Log1p: 1 {
-        eval(args) { args[0].ln_1p() },
-        partial(args, idx) {
-            match idx {
-                0 => T::one() / (T::one() + args[0]),
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Exp2: 1 {
-        eval(args) { args[0].exp2() },
-        partial(args, idx) {
-            match idx {
-                0 => args[0].exp2() * two::<T>().ln(),
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Expm1: 1 {
-        eval(args) { args[0].exp_m1() },
-        partial(args, idx) {
-            match idx {
-                0 => args[0].exp(),
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Sqrt: 1 {
-        eval(args) { args[0].sqrt() },
-        partial(args, idx) {
-            match idx {
-                0 => T::one() / (two::<T>() * args[0].sqrt()),
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Cbrt: 1 {
-        eval(args) { args[0].cbrt() },
-        partial(args, idx) {
-            match idx {
-                0 => {
-                    let three = T::from(3.0).expect("Float can represent 3.0");
-                    T::one() / (three * args[0].cbrt().powi(2))
-                }
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Abs: 1 {
-        eval(args) { args[0].abs() },
-        partial(args, idx) {
-            match idx {
-                0 => {
-                    let x = args[0];
-                    if x > T::zero() {
-                        T::one()
-                    } else if x < T::zero() {
-                        -T::one()
-                    } else {
-                        T::zero()
-                    }
-                }
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Abs2: 1 {
-        eval(args) { args[0] * args[0] },
-        partial(args, idx) {
-            match idx {
-                0 => two::<T>() * args[0],
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Inv: 1 {
-        eval(args) { args[0].recip() },
-        partial(args, idx) {
-            match idx {
-                0 => -T::one() / (args[0] * args[0]),
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Sign: 1 {
-        eval(args) { args[0].signum() },
-        partial(_args, idx) {
-            match idx {
-                0 => T::zero(),
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Identity: 1 {
-        eval(args) { args[0] },
-        partial(_args, idx) {
-            match idx {
-                0 => T::one(),
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Neg: 1 {
-        infix: Some("-"),
-        eval(args) { -args[0] },
-        partial(_args, idx) {
-            match idx {
-                0 => -T::one(),
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Add: 2 {
-        infix: Some("+"),
+    crate::op!(Add for<T> {
+        infix: "+",
         commutative: true,
         associative: true,
-        eval(args) { args[0] + args[1] },
-        partial(_args, idx) {
-            match idx {
-                0 | 1 => T::one(),
-                _ => unreachable!(),
-            }
-        },
+        eval: |[x, y]| { x + y },
+        partial: |[_x, _y], _idx| { T::one() },
     });
 
-    builtin_op!(Sub: 2 {
-        infix: Some("-"),
-        eval(args) { args[0] - args[1] },
-        partial(_args, idx) {
-            match idx {
-                0 => T::one(),
-                1 => -T::one(),
-                _ => unreachable!(),
-            }
-        },
+    crate::op!(Sub for<T> {
+        infix: "-",
+        eval: |[x, y]| { x - y },
+        partial: |[_x, _y], idx| { if idx == 0 { T::one() } else { -T::one() } },
     });
 
-    builtin_op!(Mul: 2 {
-        infix: Some("*"),
+    crate::op!(Mul for<T> {
+        infix: "*",
         commutative: true,
         associative: true,
-        eval(args) { args[0] * args[1] },
-        partial(args, idx) {
-            match idx {
-                0 => args[1],
-                1 => args[0],
-                _ => unreachable!(),
-            }
+        eval: |[x, y]| { x * y },
+        partial: |[x, y], idx| { if idx == 0 { y } else { x } },
+    });
+
+    crate::op!(Div for<T> {
+        infix: "/",
+        eval: |[x, y]| { x / y },
+        partial: |[x, y], idx| { if idx == 0 { T::one() / y } else { -x / (y * y) } },
+    });
+
+    crate::op!(Pow for<T> {
+        eval: |[x, y]| { x.powf(y) },
+        partial: |[x, y], idx| {
+            if idx == 0 { y * x.powf(y - T::one()) } else { x.powf(y) * x.ln() }
         },
     });
 
-    builtin_op!(Div: 2 {
-        infix: Some("/"),
-        eval(args) { args[0] / args[1] },
-        partial(args, idx) {
-            match idx {
-                0 => T::one() / args[1],
-                1 => -args[0] / (args[1] * args[1]),
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Pow: 2 {
-        eval(args) { args[0].powf(args[1]) },
-        partial(args, idx) {
-            let x = args[0];
-            let y = args[1];
-            let f = x.powf(y);
-            match idx {
-                0 => y * x.powf(y - T::one()),
-                1 => f * x.ln(),
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Atan2: 2 {
-        eval(args) { args[0].atan2(args[1]) },
-        partial(args, idx) {
-            let y = args[0];
-            let x = args[1];
+    crate::op!(Atan2 for<T> {
+        eval: |[y, x]| { y.atan2(x) },
+        partial: |[y, x], idx| {
             let denom = x * x + y * y;
-            match idx {
-                0 => x / denom,
-                1 => -y / denom,
-                _ => unreachable!(),
-            }
+            if idx == 0 { x / denom } else { -y / denom }
         },
     });
 
-    builtin_op!(Min: 2 {
+    crate::op!(Min for<T> {
         commutative: true,
         associative: true,
-        eval(args) { args[0].min(args[1]) },
-        partial(args, idx) {
-            let half = T::from(0.5).expect("Float can represent 0.5");
-            if args[0].is_nan() && args[1].is_nan() {
-                return half;
-            }
-            if args[0].is_nan() {
-                return match idx {
-                    0 => T::zero(),
-                    1 => T::one(),
-                    _ => unreachable!(),
-                };
-            }
-            if args[1].is_nan() {
-                return match idx {
-                    0 => T::one(),
-                    1 => T::zero(),
-                    _ => unreachable!(),
-                };
-            }
-            match idx {
-                0 => {
-                    if args[0] < args[1] {
-                        T::one()
-                    } else if args[0] > args[1] {
-                        T::zero()
-                    } else {
-                        half
-                    }
-                }
-                1 => {
-                    if args[1] < args[0] {
-                        T::one()
-                    } else if args[1] > args[0] {
-                        T::zero()
-                    } else {
-                        half
-                    }
-                }
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Max: 2 {
-        commutative: true,
-        associative: true,
-        eval(args) { args[0].max(args[1]) },
-        partial(args, idx) {
-            let half = T::from(0.5).expect("Float can represent 0.5");
-            if args[0].is_nan() && args[1].is_nan() {
-                return half;
-            }
-            if args[0].is_nan() {
-                return match idx {
-                    0 => T::zero(),
-                    1 => T::one(),
-                    _ => unreachable!(),
-                };
-            }
-            if args[1].is_nan() {
-                return match idx {
-                    0 => T::one(),
-                    1 => T::zero(),
-                    _ => unreachable!(),
-                };
-            }
-            match idx {
-                0 => {
-                    if args[0] > args[1] {
-                        T::one()
-                    } else if args[0] < args[1] {
-                        T::zero()
-                    } else {
-                        half
-                    }
-                }
-                1 => {
-                    if args[1] > args[0] {
-                        T::one()
-                    } else if args[1] < args[0] {
-                        T::zero()
-                    } else {
-                        half
-                    }
-                }
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Fma: 3 {
-        eval(args) { args[0].mul_add(args[1], args[2]) },
-        partial(args, idx) {
-            match idx {
-                0 => args[1],
-                1 => args[0],
-                2 => T::one(),
-                _ => unreachable!(),
-            }
-        },
-    });
-
-    builtin_op!(Clamp: 3 {
-        eval(args) {
-            let x = args[0];
-            let lo = args[1];
-            let hi = args[2];
-            // `Float::clamp` may panic if `lo > hi`, so keep old behavior as fallback.
-            if lo <= hi {
-                x.clamp(lo, hi)
-            } else if x < lo {
-                lo
-            } else if x > hi {
-                hi
+        eval: |[x, y]| { x.min(y) },
+        partial: |[x, y], idx| {
+            #[allow(clippy::collapsible_else_if)]
+            if x.is_nan() || y.is_nan() {
+                T::nan()
+            } else if idx == 0 {
+                if x < y { T::one() } else if x > y { T::zero() } else { half::<T>() }
             } else {
-                x
+                if y < x { T::one() } else if y > x { T::zero() } else { half::<T>() }
             }
         },
-        partial(args, idx) {
-            let x = args[0];
-            let lo = args[1];
-            let hi = args[2];
-            match idx {
-                0 => {
-                    if x < lo || x > hi { T::zero() } else { T::one() }
-                }
-                1 => {
-                    if x < lo { T::one() } else { T::zero() }
-                }
-                2 => {
-                    if x > hi { T::one() } else { T::zero() }
-                }
-                _ => unreachable!(),
+    });
+
+    crate::op!(Max for<T> {
+        commutative: true,
+        associative: true,
+        eval: |[x, y]| { x.max(y) },
+        partial: |[x, y], idx| {
+            #[allow(clippy::collapsible_else_if)]
+            if x.is_nan() || y.is_nan() {
+                T::nan()
+            } else if idx == 0 {
+                if x > y { T::one() } else if x < y { T::zero() } else { half::<T>() }
+            } else {
+                if y > x { T::one() } else if y < x { T::zero() } else { half::<T>() }
+            }
+        },
+    });
+
+    crate::op!(Fma for<T> {
+        eval: |[x, y, z]| { x.mul_add(y, z) },
+        partial: |[x, y, _z], idx| { if idx == 0 { y } else if idx == 1 { x } else { T::one() } },
+    });
+
+    crate::op!(Clamp for<T> {
+        eval: |[x, lo, hi]| {
+            // `Float::clamp` may panic if `lo > hi`, but SR might violate this,
+            // so we handle it with a NaN.
+            if lo <= hi { x.clamp(lo, hi) } else { T::nan() }
+        },
+        partial: |[x, lo, hi], idx| {
+            #[allow(clippy::collapsible_else_if)]
+            if idx == 0 {
+                if x < lo || x > hi { T::zero() } else { T::one() }
+            } else if idx == 1 {
+                if x < lo { T::one() } else { T::zero() }
+            } else {
+                if x > hi { T::one() } else { T::zero() }
             }
         },
     });
 }
 
 pub mod presets {
+    use crate::operator_enum::builtin::*;
     use crate::opset;
 
     // A convenient, batteries-included opset so downstream crates (like `symbolic_regression`)
     // don't need to define their own `Ops` type for common scalar use cases.
 
     opset! {
-        pub struct BuiltinOpsF32<f32>;
-        ops {
-            (1, UOpsF32) {
-                Abs, Abs2, Acos, Acosh, Asin, Asinh, Atan, Atanh,
-                Cbrt, Cos, Cosh, Cot, Csc, Exp, Exp2, Expm1,
-                Identity, Inv, Log, Log1p, Log2, Log10,
-                Neg, Sec, Sign, Sin, Sinh, Sqrt, Tan, Tanh,
-            }
-            (2, BOpsF32) { Add, Atan2, Div, Max, Min, Mul, Pow, Sub, }
-            (3, TOpsF32) { Clamp, Fma, }
+        pub BuiltinOpsF32 for f32 {
+            Abs, Abs2, Acos, Acosh, Asin, Asinh, Atan, Atanh, Cbrt, Cos, Cosh, Cot, Csc, Exp, Exp2, Expm1,
+            Identity, Inv, Log, Log1p, Log2, Log10, Neg, Sec, Sign, Sin, Sinh, Sqrt, Tan, Tanh,
+            Add, Atan2, Div, Max, Min, Mul, Pow, Sub,
+            Clamp, Fma,
         }
     }
 
     opset! {
-        pub struct BuiltinOpsF64<f64>;
-        ops {
-            (1, UOpsF64) {
-                Abs, Abs2, Acos, Acosh, Asin, Asinh, Atan, Atanh,
-                Cbrt, Cos, Cosh, Cot, Csc, Exp, Exp2, Expm1,
-                Identity, Inv, Log, Log1p, Log2, Log10,
-                Neg, Sec, Sign, Sin, Sinh, Sqrt, Tan, Tanh,
-            }
-            (2, BOpsF64) { Add, Atan2, Div, Max, Min, Mul, Pow, Sub, }
-            (3, TOpsF64) { Clamp, Fma, }
+        pub BuiltinOpsF64 for f64 {
+            Abs, Abs2, Acos, Acosh, Asin, Asinh, Atan, Atanh, Cbrt, Cos, Cosh, Cot, Csc, Exp, Exp2, Expm1,
+            Identity, Inv, Log, Log1p, Log2, Log10, Neg, Sec, Sign, Sin, Sinh, Sqrt, Tan, Tanh,
+            Add, Atan2, Div, Max, Min, Mul, Pow, Sub,
+            Clamp, Fma,
         }
     }
 }
@@ -676,365 +461,288 @@ pub mod presets {
 // -------------------------------------------------------------------------------------------------
 
 #[macro_export]
-macro_rules! custom_opset {
-    // Compute the maximum arity.
-    (@max_arity $a:literal) => { $a as u8 };
-    (@max_arity $a:literal, $($rest:literal),+ $(,)?) => {
-        if $a as u8 > $crate::custom_opset!(@max_arity $($rest),+) {
-            $a as u8
-        } else {
-            $crate::custom_opset!(@max_arity $($rest),+)
-        }
-    };
+macro_rules! opset {
+    (@count) => { 0usize };
+    (@count $head:tt $(, $tail:tt)*) => { 1usize + $crate::opset!(@count $($tail),*) };
 
+    // Operator type resolution:
+    // - Default: the type is `OpName` (must be in scope)
+    // - Override per op: `OpName = some::path::Type`
+    (@op_ty $op_name:ident) => { $op_name };
+    (@op_ty $op_name:ident = $op_path:path) => { $op_path };
+
+    (@max_op_arity $op_name:ident $(= $op_path:path)?) => {
+        <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY
+    };
+    (@max_op_arity $op_name:ident $(= $op_path:path)?, $($rest:tt)+) => {{
+        let a = <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY;
+        let b = $crate::opset!(@max_op_arity $($rest)+);
+        if a > b { a } else { b }
+    }};
+
+    // New syntax:
+    // opset! { pub MyOps for f64 { Sin, Cos, Square, ... } }
     (
-        $(#[$meta:meta])* $vis:vis struct $Ops:ident<$t:ty> {
-            $( $arity:literal {
-                $( $op_name:ident { $($op_body:tt)* } )*
-            } )*
+        $(#[$meta:meta])* $vis:vis $Ops:ident for $t:ty {
+            $($op_name:ident $(= $op_path:path)?),* $(,)?
         }
     ) => {
         $(#[$meta])*
         #[derive(Copy, Clone, Debug, Default)]
         $vis struct $Ops;
 
-        // Per-arity IDs and eval/partial helpers.
         $crate::paste::paste! {
-            $(
+            #[allow(non_snake_case)]
+            mod [<__opset_ $Ops>] {
+                #![allow(non_upper_case_globals)]
+
+                use super::*;
+
+                const fn count_arity<const N: usize>(arities: &[u8; N], target: u8) -> usize {
+                    let mut i = 0usize;
+                    let mut n = 0usize;
+                    while i < N {
+                        if arities[i] == target {
+                            n += 1;
+                        }
+                        i += 1;
+                    }
+                    n
+                }
+
+                const fn filter_ids<const N: usize, const M: usize>(
+                    arities: &[u8; N],
+                    target: u8,
+                    ids: &[u16; N],
+                ) -> [u16; M] {
+                    let mut out = [0u16; M];
+                    let mut i = 0usize;
+                    let mut j = 0usize;
+                    while i < N {
+                        if arities[i] == target {
+                            out[j] = ids[i];
+                            j += 1;
+                        }
+                        i += 1;
+                    }
+                    out
+                }
+
                 #[repr(u16)]
                 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
                 #[allow(non_camel_case_types)]
-                enum [<__ $Ops _op_id_ $arity>] { $( [<$op_name:camel>], )* }
-            )*
+                pub(super) enum OpId { $($op_name,)* }
 
-            $(
-                $(
-                    #[allow(non_snake_case)]
-                    fn [<__ $Ops _ $op_name _eval>](args: &[$t; $arity]) -> $t {
-                        $crate::custom_opset!(@eval_body args { $($op_body)* })
+                $crate::paste::paste! {
+                    $(
+                        pub(super) const [<ID_ $op_name>]: u16 = OpId::$op_name as u16;
+                    )*
+                }
+
+                pub(super) const N: usize = $crate::opset!(@count $($op_name),*);
+
+                pub(super) const ARITIES: [u8; N] = [
+                    $( <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY, )*
+                ];
+
+                pub(super) const IDS: [u16; N] = [
+                    $( OpId::$op_name as u16, )*
+                ];
+
+                pub(super) const MAX_ARITY: u8 = $crate::opset!(@max_op_arity $($op_name $(= $op_path)?),*);
+                const _: () = {
+                    if MAX_ARITY > 16 {
+                        panic!("opset!: max arity > 16 is not supported");
                     }
+                };
 
-                    #[allow(non_snake_case)]
-                    fn [<__ $Ops _ $op_name _partial>](args: &[$t; $arity], idx: usize) -> $t {
-                        $crate::custom_opset!(@partial_body args, idx { $($op_body)* })
-                    }
-                )*
-            )*
-        }
+                const COUNT_1: usize = count_arity(&ARITIES, 1);
+                const COUNT_2: usize = count_arity(&ARITIES, 2);
+                const COUNT_3: usize = count_arity(&ARITIES, 3);
+                const COUNT_4: usize = count_arity(&ARITIES, 4);
+                const COUNT_5: usize = count_arity(&ARITIES, 5);
+                const COUNT_6: usize = count_arity(&ARITIES, 6);
+                const COUNT_7: usize = count_arity(&ARITIES, 7);
+                const COUNT_8: usize = count_arity(&ARITIES, 8);
+                const COUNT_9: usize = count_arity(&ARITIES, 9);
+                const COUNT_10: usize = count_arity(&ARITIES, 10);
+                const COUNT_11: usize = count_arity(&ARITIES, 11);
+                const COUNT_12: usize = count_arity(&ARITIES, 12);
+                const COUNT_13: usize = count_arity(&ARITIES, 13);
+                const COUNT_14: usize = count_arity(&ARITIES, 14);
+                const COUNT_15: usize = count_arity(&ARITIES, 15);
+                const COUNT_16: usize = count_arity(&ARITIES, 16);
 
-        // Marker types implementing `Operator`.
-        $crate::paste::paste! {
-            $(
-                $(
-                    #[derive(Copy, Clone, Debug, Default)]
-                    $vis struct [<$Ops $op_name:camel>];
+                const IDS_1: [u16; COUNT_1] = filter_ids(&ARITIES, 1, &IDS);
+                const IDS_2: [u16; COUNT_2] = filter_ids(&ARITIES, 2, &IDS);
+                const IDS_3: [u16; COUNT_3] = filter_ids(&ARITIES, 3, &IDS);
+                const IDS_4: [u16; COUNT_4] = filter_ids(&ARITIES, 4, &IDS);
+                const IDS_5: [u16; COUNT_5] = filter_ids(&ARITIES, 5, &IDS);
+                const IDS_6: [u16; COUNT_6] = filter_ids(&ARITIES, 6, &IDS);
+                const IDS_7: [u16; COUNT_7] = filter_ids(&ARITIES, 7, &IDS);
+                const IDS_8: [u16; COUNT_8] = filter_ids(&ARITIES, 8, &IDS);
+                const IDS_9: [u16; COUNT_9] = filter_ids(&ARITIES, 9, &IDS);
+                const IDS_10: [u16; COUNT_10] = filter_ids(&ARITIES, 10, &IDS);
+                const IDS_11: [u16; COUNT_11] = filter_ids(&ARITIES, 11, &IDS);
+                const IDS_12: [u16; COUNT_12] = filter_ids(&ARITIES, 12, &IDS);
+                const IDS_13: [u16; COUNT_13] = filter_ids(&ARITIES, 13, &IDS);
+                const IDS_14: [u16; COUNT_14] = filter_ids(&ARITIES, 14, &IDS);
+                const IDS_15: [u16; COUNT_15] = filter_ids(&ARITIES, 15, &IDS);
+                const IDS_16: [u16; COUNT_16] = filter_ids(&ARITIES, 16, &IDS);
 
-                    impl $crate::traits::OpTag for [<$Ops $op_name:camel>] {
-                        const ARITY: u8 = $arity as u8;
-                    }
+                pub(super) const BY_ARITY: [&[u16]; 17] = [
+                    &[] as &[u16],
+                    &IDS_1,
+                    &IDS_2,
+                    &IDS_3,
+                    &IDS_4,
+                    &IDS_5,
+                    &IDS_6,
+                    &IDS_7,
+                    &IDS_8,
+                    &IDS_9,
+                    &IDS_10,
+                    &IDS_11,
+                    &IDS_12,
+                    &IDS_13,
+                    &IDS_14,
+                    &IDS_15,
+                    &IDS_16,
+                ];
 
-                    impl $crate::traits::Operator<$t, $arity> for [<$Ops $op_name:camel>] {
-                        const NAME: &'static str = stringify!($op_name);
-                        const DISPLAY: &'static str = $crate::custom_opset!(@display $op_name { $($op_body)* });
-                        const INFIX: Option<&'static str> = $crate::custom_opset!(@infix { $($op_body)* });
-                        const COMMUTATIVE: bool = $crate::custom_opset!(@bool [commutative] { $($op_body)* });
-                        const ASSOCIATIVE: bool = $crate::custom_opset!(@bool [associative] { $($op_body)* });
-                        const COMPLEXITY: u16 = $crate::custom_opset!(@complexity { $($op_body)* });
-
-                        #[inline]
-                        fn eval(args: &[$t; $arity]) -> $t {
-                            [<__ $Ops _ $op_name _eval>](args)
-                        }
-
-                        #[inline]
-                        fn partial(args: &[$t; $arity], idx: usize) -> $t {
-                            [<__ $Ops _ $op_name _partial>](args, idx)
-                        }
-                    }
-                )*
-            )*
+                pub(super) const META: [$crate::traits::OpMeta; N] = [
+                    $(
+                        $crate::traits::OpMeta {
+                            arity: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY,
+                            id: OpId::$op_name as u16,
+                            name: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<
+                                $t,
+                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize }
+                            >>::NAME,
+                            display: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<
+                                $t,
+                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize }
+                            >>::DISPLAY,
+                            infix: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<
+                                $t,
+                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize }
+                            >>::INFIX,
+                            aliases: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<
+                                $t,
+                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize }
+                            >>::ALIASES,
+                            commutative: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<
+                                $t,
+                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize }
+                            >>::COMMUTATIVE,
+                            associative: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<
+                                $t,
+                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize }
+                            >>::ASSOCIATIVE,
+                            complexity: <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::Operator<
+                                $t,
+                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize }
+                            >>::COMPLEXITY,
+                        },
+                    )*
+                ];
+            }
         }
 
         impl $crate::traits::OperatorSet for $Ops {
             type T = $t;
-            const MAX_ARITY: u8 = $crate::custom_opset!(@max_arity $($arity),*);
+            const MAX_ARITY: u8 = $crate::paste::paste! { [<__opset_ $Ops>]::MAX_ARITY };
 
+            #[inline]
             fn ops_with_arity(arity: u8) -> &'static [u16] {
-                match arity {
-                    $(
-                        $arity => &[$( $crate::paste::paste! { [<__ $Ops _op_id_ $arity>]::[<$op_name:camel>] as u16 } , )*],
-                    )*
-                    _ => &[],
+                $crate::paste::paste! {
+                    [<__opset_ $Ops>]::BY_ARITY
+                        .get(arity as usize)
+                        .copied()
+                        .unwrap_or(&[])
                 }
             }
 
+            #[inline]
             fn meta(op: $crate::traits::OpId) -> Option<&'static $crate::traits::OpMeta> {
-                match op.arity {
-                    $(
-                        $arity => {
-                            $crate::paste::paste! {
-                                const META: &[$crate::traits::OpMeta] = &[
-                                    $(
-                                        $crate::traits::OpMeta {
-                                            arity: $arity as u8,
-                                            id: [<__ $Ops _op_id_ $arity>]::[<$op_name:camel>] as u16,
-                                            name: <[<$Ops $op_name:camel>] as $crate::traits::Operator<$t, $arity>>::NAME,
-                                            display: <[<$Ops $op_name:camel>] as $crate::traits::Operator<$t, $arity>>::DISPLAY,
-                                            infix: <[<$Ops $op_name:camel>] as $crate::traits::Operator<$t, $arity>>::INFIX,
-                                            commutative: <[<$Ops $op_name:camel>] as $crate::traits::Operator<$t, $arity>>::COMMUTATIVE,
-                                            associative: <[<$Ops $op_name:camel>] as $crate::traits::Operator<$t, $arity>>::ASSOCIATIVE,
-                                            complexity: <[<$Ops $op_name:camel>] as $crate::traits::Operator<$t, $arity>>::COMPLEXITY,
-                                        },
-                                    )*
-                                ];
-                                META.get(op.id as usize)
-                            }
+                $crate::paste::paste! {
+                    [<__opset_ $Ops>]::META
+                        .get(op.id as usize)
+                        .filter(|m| m.arity == op.arity)
+                }
+            }
+
+	            #[inline]
+		            fn eval(op: $crate::traits::OpId, ctx: $crate::dispatch::EvalKernelCtx<'_, '_, $t>) -> bool {
+		                match op.id {
+		                    $(
+		                        $crate::paste::paste! { [<__opset_ $Ops>]::[<ID_ $op_name>] } => {
+		                            let expected = <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY;
+		                            debug_assert_eq!(op.arity, expected, "mismatched arity for op id {}", op.id);
+		                            $crate::evaluate::kernels::eval_nary::<
+		                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize },
+	                                $t,
+	                                $crate::opset!(@op_ty $op_name $(= $op_path)?)
+                            >(ctx.out, ctx.args, ctx.opts)
                         }
                     )*
-                    _ => None,
+                    _ => panic!("unknown op id {}", op.id),
                 }
             }
 
-            fn eval(op: $crate::traits::OpId, ctx: $crate::dispatch::EvalKernelCtx<'_, '_, $t>) -> bool {
-                match op.arity {
-                    $(
-                        $arity => match op.id {
-                            $(
-                                x if x == ($crate::paste::paste! { [<__ $Ops _op_id_ $arity>]::[<$op_name:camel>] as u16 }) =>
-                                    $crate::paste::paste! {
-                                        $crate::evaluate::kernels::eval_nary::<$arity, $t, [<$Ops $op_name:camel>]>(
-                                            ctx.out,
-                                            ctx.args,
-                                            ctx.opts,
-                                        )
-                                    },
-                            )*
-                            _ => panic!("unknown op id {} for arity {}", op.id, op.arity),
-                        },
-                    )*
-                    _ => panic!("unsupported arity {}", op.arity),
-                }
-            }
-
-            fn diff(op: $crate::traits::OpId, ctx: $crate::dispatch::DiffKernelCtx<'_, '_, $t>) -> bool {
-                match op.arity {
-                    $(
-                        $arity => match op.id {
-                            $(
-                                x if x == ($crate::paste::paste! { [<__ $Ops _op_id_ $arity>]::[<$op_name:camel>] as u16 }) =>
-                                    $crate::paste::paste! {
-                                        $crate::evaluate::kernels::diff_nary::<$arity, $t, [<$Ops $op_name:camel>]>(
-                                            ctx.out_val,
-                                            ctx.out_der,
-                                            ctx.args,
-                                            ctx.dargs,
-                                            ctx.opts,
-                                        )
-                                    },
-                            )*
-                            _ => panic!("unknown op id {} for arity {}", op.id, op.arity),
-                        },
-                    )*
-                    _ => panic!("unsupported arity {}", op.arity),
-                }
-            }
-
-            fn grad(op: $crate::traits::OpId, ctx: $crate::dispatch::GradKernelCtx<'_, '_, $t>) -> bool {
-                match op.arity {
-                    $(
-                        $arity => match op.id {
-                            $(
-                                x if x == ($crate::paste::paste! { [<__ $Ops _op_id_ $arity>]::[<$op_name:camel>] as u16 }) =>
-                                    $crate::paste::paste! {
-                                        $crate::evaluate::kernels::grad_nary::<$arity, $t, [<$Ops $op_name:camel>]>(ctx)
-                                    },
-                            )*
-                            _ => panic!("unknown op id {} for arity {}", op.id, op.arity),
-                        },
-                    )*
-                    _ => panic!("unsupported arity {}", op.arity),
-                }
-            }
-        }
-
-        $crate::paste::paste! {
-            $(
-                $(
-                    impl $crate::traits::HasOp<[<$Ops $op_name:camel>]> for $Ops {
-                        const ID: u16 = [<__ $Ops _op_id_ $arity>]::[<$op_name:camel>] as u16;
-                    }
-                )*
-            )*
-        }
-    };
-
-    // ---- helper parsers ----
-
-    (@eval_body $args:ident { eval: $eval:expr, $($rest:tt)* }) => { ($eval)($args) };
-    (@eval_body $args:ident { eval($pat:pat) $body:block, $($rest:tt)* }) => {{ let $pat = $args; $body }};
-    (@eval_body $args:ident { $head:tt $($tail:tt)* }) => { $crate::custom_opset!(@eval_body $args { $($tail)* }) };
-    (@eval_body $args:ident { }) => { compile_error!("custom_opset!: missing eval") };
-
-    (@partial_body $args:ident, $idx:ident { partial: $partial:expr, $($rest:tt)* }) => { ($partial)($args, $idx) };
-    (@partial_body $args:ident, $idx:ident { partial($pat:pat, $ipat:pat) $body:block, $($rest:tt)* }) => {{
-        let $pat = $args;
-        let $ipat = $idx;
-        $body
-    }};
-    (@partial_body $args:ident, $idx:ident { $head:tt $($tail:tt)* }) => { $crate::custom_opset!(@partial_body $args, $idx { $($tail)* }) };
-    (@partial_body $args:ident, $idx:ident { }) => { compile_error!("custom_opset!: missing partial") };
-
-    (@display $op_name:ident { display: $d:expr, $($rest:tt)* }) => { $d };
-    (@display $op_name:ident { $head:tt $($tail:tt)* }) => { $crate::custom_opset!(@display $op_name { $($tail)* }) };
-    (@display $op_name:ident { }) => { stringify!($op_name) };
-
-    (@infix { infix: $i:expr, $($rest:tt)* }) => { Some($i) };
-    (@infix { $head:tt $($tail:tt)* }) => { $crate::custom_opset!(@infix { $($tail)* }) };
-    (@infix { }) => { None };
-
-    (@complexity { complexity: $c:expr, $($rest:tt)* }) => { $c };
-    (@complexity { $head:tt $($tail:tt)* }) => { $crate::custom_opset!(@complexity { $($tail)* }) };
-    (@complexity { }) => { 1u16 };
-
-    (@bool [commutative] { commutative: $b:expr, $($rest:tt)* }) => { $b };
-    (@bool [associative] { associative: $b:expr, $($rest:tt)* }) => { $b };
-    (@bool [$key:ident] { $head:tt $($tail:tt)* }) => { $crate::custom_opset!(@bool [$key] { $($tail)* }) };
-    (@bool [$key:ident] { }) => { false };
-
-    ($($other:tt)*) => {
-        compile_error!(concat!("could not parse custom_opset! input: ", stringify!($($other)*)));
-    };
-}
-
-#[macro_export]
-macro_rules! opset {
-    // Compute the maximum arity.
-    (@max_arity $a:literal) => { $a as u8 };
-    (@max_arity $a:literal, $($rest:literal),+ $(,)?) => {
-        if $a as u8 > $crate::opset!(@max_arity $($rest),+) {
-            $a as u8
-        } else {
-            $crate::opset!(@max_arity $($rest),+)
-        }
-    };
-
-    (
-        $(#[$meta:meta])* $vis:vis struct $Ops:ident<$t:ty>;
-        ops {
-            $( ($arity:literal, $enum_name:ident) { $($op_name:ident),* $(,)? } )*
-        }
-    ) => {
-        $(#[$meta])*
-        #[derive(Copy, Clone, Debug, Default)]
-        $vis struct $Ops;
-
-        $(
-            #[repr(u16)]
-            #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-            #[allow(non_camel_case_types)]
-            $vis enum $enum_name { $($op_name,)* }
-        )*
-
-        impl $crate::traits::OperatorSet for $Ops {
-            type T = $t;
-            const MAX_ARITY: u8 = $crate::opset!(@max_arity $($arity),*);
-
-            fn ops_with_arity(arity: u8) -> &'static [u16] {
-                match arity {
-                    $(
-                        $arity => &[$($enum_name::$op_name as u16,)*],
-                    )*
-                    _ => &[],
-                }
-            }
-
-            fn meta(op: $crate::traits::OpId) -> Option<&'static $crate::traits::OpMeta> {
-                match op.arity {
-                    $(
-                        $arity => {
-                            const META: &[$crate::traits::OpMeta] = &[
-                                $(
-                                    $crate::traits::OpMeta {
-                                        arity: $arity as u8,
-                                        id: $enum_name::$op_name as u16,
-                                        name: <$crate::operator_enum::builtin::$op_name as $crate::traits::Operator<$t, $arity>>::NAME,
-                                        display: <$crate::operator_enum::builtin::$op_name as $crate::traits::Operator<$t, $arity>>::DISPLAY,
-                                        infix: <$crate::operator_enum::builtin::$op_name as $crate::traits::Operator<$t, $arity>>::INFIX,
-                                        commutative: <$crate::operator_enum::builtin::$op_name as $crate::traits::Operator<$t, $arity>>::COMMUTATIVE,
-                                        associative: <$crate::operator_enum::builtin::$op_name as $crate::traits::Operator<$t, $arity>>::ASSOCIATIVE,
-                                        complexity: <$crate::operator_enum::builtin::$op_name as $crate::traits::Operator<$t, $arity>>::COMPLEXITY,
-                                    },
-                                )*
-                            ];
-                            META.get(op.id as usize)
+            #[inline]
+		            fn diff(op: $crate::traits::OpId, ctx: $crate::dispatch::DiffKernelCtx<'_, '_, $t>) -> bool {
+		                match op.id {
+		                    $(
+		                        $crate::paste::paste! { [<__opset_ $Ops>]::[<ID_ $op_name>] } => {
+		                            let expected = <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY;
+		                            debug_assert_eq!(op.arity, expected, "mismatched arity for op id {}", op.id);
+		                            $crate::evaluate::kernels::diff_nary::<
+		                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize },
+	                                $t,
+	                                $crate::opset!(@op_ty $op_name $(= $op_path)?)
+                            >(ctx.out_val, ctx.out_der, ctx.args, ctx.dargs, ctx.opts)
                         }
                     )*
-                    _ => None,
+                    _ => panic!("unknown op id {}", op.id),
                 }
             }
 
-            fn eval(op: $crate::traits::OpId, ctx: $crate::dispatch::EvalKernelCtx<'_, '_, $t>) -> bool {
-                match op.arity {
-                    $(
-                        $arity => match op.id {
-                            $(
-                                x if x == ($enum_name::$op_name as u16) =>
-                                    $crate::evaluate::kernels::eval_nary::<$arity, $t, $crate::operator_enum::builtin::$op_name>(
-                                        ctx.out,
-                                        ctx.args,
-                                        ctx.opts,
-                                    ),
-                            )*
-                            _ => panic!("unknown op id {} for arity {}", op.id, op.arity),
-                        },
-                    )*
-                    _ => panic!("unsupported arity {}", op.arity),
-                }
-            }
-
-            fn diff(op: $crate::traits::OpId, ctx: $crate::dispatch::DiffKernelCtx<'_, '_, $t>) -> bool {
-                match op.arity {
-                    $(
-                        $arity => match op.id {
-                            $(
-                                x if x == ($enum_name::$op_name as u16) =>
-                                    $crate::evaluate::kernels::diff_nary::<$arity, $t, $crate::operator_enum::builtin::$op_name>(
-                                        ctx.out_val,
-                                        ctx.out_der,
-                                        ctx.args,
-                                        ctx.dargs,
-                                        ctx.opts,
-                                    ),
-                            )*
-                            _ => panic!("unknown op id {} for arity {}", op.id, op.arity),
-                        },
-                    )*
-                    _ => panic!("unsupported arity {}", op.arity),
-                }
-            }
-
+            #[inline]
             fn grad(op: $crate::traits::OpId, ctx: $crate::dispatch::GradKernelCtx<'_, '_, $t>) -> bool {
-                match op.arity {
-                    $(
-                        $arity => match op.id {
-                            $(
-                                x if x == ($enum_name::$op_name as u16) =>
-                                    $crate::evaluate::kernels::grad_nary::<$arity, $t, $crate::operator_enum::builtin::$op_name>(ctx),
-                            )*
-                            _ => panic!("unknown op id {} for arity {}", op.id, op.arity),
-                        },
+		                match op.id {
+		                    $(
+		                        $crate::paste::paste! { [<__opset_ $Ops>]::[<ID_ $op_name>] } => {
+		                            let expected = <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY;
+		                            debug_assert_eq!(op.arity, expected, "mismatched arity for op id {}", op.id);
+		                            $crate::evaluate::kernels::grad_nary::<
+		                                { <$crate::opset!(@op_ty $op_name $(= $op_path)?) as $crate::traits::OpTag>::ARITY as usize },
+	                                $t,
+	                                $crate::opset!(@op_ty $op_name $(= $op_path)?)
+                            >(ctx)
+                        }
                     )*
-                    _ => panic!("unsupported arity {}", op.arity),
+                    _ => panic!("unknown op id {}", op.id),
                 }
             }
         }
 
         $(
-            $(
-                impl $crate::traits::HasOp<$crate::operator_enum::builtin::$op_name> for $Ops {
-                    const ID: u16 = $enum_name::$op_name as u16;
-                }
-            )*
+            impl $crate::traits::HasOp<$crate::opset!(@op_ty $op_name $(= $op_path)?)> for $Ops {
+                const ID: u16 = $crate::paste::paste! { [<__opset_ $Ops>]::OpId::$op_name as u16 };
+            }
         )*
+
+        impl $Ops {
+            pub fn from_names<const D: usize, I>(
+                names: I,
+            ) -> Result<$crate::Operators<D>, $crate::OperatorSelectError>
+            where
+                I: IntoIterator,
+                I::Item: AsRef<str>,
+            {
+                $crate::Operators::<D>::from_names::<Self, I>(names)
+            }
+        }
     };
 }
