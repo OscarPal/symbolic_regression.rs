@@ -410,5 +410,50 @@ fn bench_utils(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_search, bench_utils);
+fn bench_rotate_tree(c: &mut Criterion) {
+    fn make_mixed_tree<R: Rng>(rng: &mut R, n_leaves: usize, unary_budget: usize) -> Vec<PNode> {
+        let mut nodes: Vec<PNode> = Vec::with_capacity(n_leaves * 2 + unary_budget);
+        for _ in 0..n_leaves {
+            nodes.push(PNode::Var {
+                feature: rng.random_range(0..16) as u16,
+            });
+        }
+        let mut stack = n_leaves;
+        let mut unary_left = unary_budget;
+        while stack > 1 {
+            if unary_left > 0 && rng.random_bool(0.35) {
+                nodes.push(PNode::Op {
+                    arity: 1,
+                    op: rng.random_range(0..128) as u16,
+                });
+                unary_left -= 1;
+                continue;
+            }
+
+            let arity = if stack >= 3 && rng.random_bool(0.35) { 3 } else { 2 };
+            nodes.push(PNode::Op {
+                arity: arity as u8,
+                op: rng.random_range(0..128) as u16,
+            });
+            stack = stack - arity + 1;
+        }
+        nodes
+    }
+
+    let mut gen = StdRng::seed_from_u64(0);
+    let mut exprs: Vec<PostfixExpr<T, Ops, D>> = (0..1024)
+        .map(|_| PostfixExpr::new(make_mixed_tree(&mut gen, 16, 8), Vec::new(), Default::default()))
+        .collect();
+    let mut rng = FastRand::with_seed(0);
+    c.bench_function("rotate_tree_in_place/mixed_arity", |b| {
+        b.iter(|| {
+            for expr in &mut exprs {
+                let ok = rotate_tree_in_place(&mut rng, expr);
+                std::hint::black_box(ok);
+            }
+        });
+    });
+}
+
+criterion_group!(benches, bench_search, bench_utils, bench_rotate_tree);
 criterion_main!(benches);
