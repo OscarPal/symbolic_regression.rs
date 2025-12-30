@@ -14,13 +14,8 @@ use crate::dataset::TaggedDataset;
 use crate::loss_functions::loss_to_cost;
 use crate::options::Options;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct MemberId(pub u64);
-
 #[derive(Debug)]
 pub struct PopMember<T: Float, Ops, const D: usize> {
-    pub id: MemberId,
-    pub parent: Option<MemberId>,
     pub birth: u64,
     pub expr: PostfixExpr<T, Ops, D>,
     pub plan: EvalPlan<D>,
@@ -60,8 +55,6 @@ pub(crate) fn reset_pseudo_time_for_tests() {
 impl<T: Float, Ops, const D: usize> Clone for PopMember<T, Ops, D> {
     fn clone(&self) -> Self {
         Self {
-            id: self.id,
-            parent: self.parent,
             birth: self.birth,
             expr: self.expr.clone(),
             plan: self.plan.clone(),
@@ -101,17 +94,9 @@ impl<T: Float, Ops, const D: usize> PopMember<T, Ops, D>
 where
     Ops: dynamic_expressions::OperatorSet<T = T>,
 {
-    pub fn from_expr(
-        id: MemberId,
-        parent: Option<MemberId>,
-        expr: PostfixExpr<T, Ops, D>,
-        n_features: usize,
-        options: &Options<T, D>,
-    ) -> Self {
+    pub fn from_expr(expr: PostfixExpr<T, Ops, D>, n_features: usize, options: &Options<T, D>) -> Self {
         let plan = dynamic_expressions::compile_plan(&expr.nodes, n_features, expr.consts.len());
         Self {
-            id,
-            parent,
             birth: get_birth_order(options.deterministic),
             expr,
             plan,
@@ -121,17 +106,9 @@ where
         }
     }
 
-    pub fn from_expr_with_birth(
-        id: MemberId,
-        parent: Option<MemberId>,
-        birth: u64,
-        expr: PostfixExpr<T, Ops, D>,
-        n_features: usize,
-    ) -> Self {
+    pub fn from_expr_with_birth(birth: u64, expr: PostfixExpr<T, Ops, D>, n_features: usize) -> Self {
         let plan = dynamic_expressions::compile_plan(&expr.nodes, n_features, expr.consts.len());
         Self {
-            id,
-            parent,
             birth,
             expr,
             plan,

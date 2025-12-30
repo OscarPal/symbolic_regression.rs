@@ -1,7 +1,7 @@
 use ndarray::{Array2, ArrayView2};
 use num_traits::Float;
 
-use crate::compile::{EvalPlan, build_node_hash, compile_plan};
+use crate::compile::{EvalPlan, compile_plan};
 use crate::dispatch::{EvalKernelCtx, SrcRef};
 use crate::expression::PostfixExpr;
 use crate::node::Src;
@@ -66,7 +66,7 @@ impl<T: Float, const D: usize> EvalContext<T, D> {
         let Some(plan) = &self.plan else {
             return true;
         };
-        plan.hash != build_node_hash(&expr.nodes)
+        plan.hash != expr.hash_nodes()
     }
 
     fn ensure_scratch(&mut self, n_slots: usize) {

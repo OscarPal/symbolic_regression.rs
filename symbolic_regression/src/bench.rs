@@ -11,7 +11,7 @@ use crate::dataset::TaggedDataset;
 use crate::loss_functions::baseline_loss_from_zero_expression;
 use crate::optim::{BackTracking, EvalBudget, Objective, OptimOptions, bfgs_minimize};
 use crate::pop_member::Evaluator;
-use crate::{Dataset, MemberId, OperatorLibrary, Options, PopMember};
+use crate::{Dataset, OperatorLibrary, Options, PopMember};
 
 const D: usize = 3;
 type T = f64;
@@ -121,7 +121,7 @@ pub fn constant_opt_linear_env() -> ConstantOptLinearEnv {
 
 pub fn run_constant_opt_linear(env: &ConstantOptLinearEnv) -> (bool, f64, Vec<f64>) {
     let expr = build_linear_expr_for_constant_optimization();
-    let mut member = PopMember::from_expr(MemberId(0), None, expr, env.dataset.n_features, &env.options);
+    let mut member = PopMember::from_expr(expr, env.dataset.n_features, &env.options);
     let mut evaluator = Evaluator::new(env.dataset.n_rows);
     let mut grad_ctx = dynamic_expressions::GradContext::new(env.dataset.n_rows);
     let baseline_loss = if env.options.use_baseline {
