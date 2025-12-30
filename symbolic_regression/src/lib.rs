@@ -42,7 +42,7 @@ pub use loss_functions::{LossKind, epsilon_insensitive, huber, log_cosh, lp, mae
 pub use operator_library::OperatorLibrary;
 pub use operator_selection::OperatorsSampling;
 pub use options::{MutationWeights, Options, OutputStyle, WasmOptionsShim};
-pub use pop_member::{MemberId, PopMember};
+pub use pop_member::PopMember;
 pub use search_utils::{SearchEngine, SearchResult, equation_search};
 #[cfg(feature = "bench")]
 pub use {

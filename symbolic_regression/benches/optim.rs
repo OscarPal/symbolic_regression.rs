@@ -14,7 +14,7 @@ use rand::{Rng, SeedableRng};
 use rand_distr::StandardNormal;
 use symbolic_regression::operator_selection::OperatorsSampling;
 use symbolic_regression::{
-    Dataset, Evaluator, MemberId, NextGenerationCtx, OptimizeConstantsCtx, Options, PopMember, Population,
+    Dataset, Evaluator, NextGenerationCtx, OptimizeConstantsCtx, Options, PopMember, Population,
     RunningSearchStatistics, TaggedDataset, best_of_sample, check_constraints, equation_search,
     insert_random_op_in_place, next_generation, optimize_constants, rotate_tree_in_place,
 };
@@ -175,9 +175,9 @@ fn make_population(
     let mut evaluator = Evaluator::new(dataset.n_rows);
 
     let mut members = Vec::with_capacity(pop_size);
-    for i in 0..pop_size {
+    for _i in 0..pop_size {
         let expr = random_expr::<Ops, D, _>(&mut rng, &options.operators, dataset.n_features, tree_size);
-        let mut member = PopMember::from_expr(MemberId(i as u64), None, expr, dataset.n_features, options);
+        let mut member = PopMember::from_expr(expr, dataset.n_features, options);
         let _ = member.evaluate(&tagged, options, &mut evaluator);
         members.push(member);
     }
@@ -249,10 +249,9 @@ fn bench_utils(c: &mut Criterion) {
                     let tagged = TaggedDataset::new(&dataset, None);
                     let evaluator = Evaluator::new(dataset.n_rows);
                     let rng = FastRand::with_seed(6);
-                    let next_id = population.len() as u64;
-                    (tagged, evaluator, rng, next_id)
+                    (tagged, evaluator, rng)
                 },
-                |(tagged, mut evaluator, mut rng, mut next_id)| {
+                |(tagged, mut evaluator, mut rng)| {
                     for member in population.members.iter() {
                         let ctx = NextGenerationCtx {
                             rng: &mut rng,
@@ -262,7 +261,6 @@ fn bench_utils(c: &mut Criterion) {
                             stats: &stats,
                             options: &options,
                             evaluator: &mut evaluator,
-                            next_id: &mut next_id,
                             _ops: PhantomData::<Ops>,
                         };
                         let _ = next_generation(member, ctx);
@@ -280,9 +278,9 @@ fn bench_utils(c: &mut Criterion) {
         let mut rng = FastRand::with_seed(42);
         let mut expr_rng = StdRng::seed_from_u64(42);
         let mut members = Vec::with_capacity(10);
-        for i in 0..10 {
+        for _i in 0..10 {
             let expr = random_expr::<Ops, D, _>(&mut expr_rng, &options.operators, dataset.n_features, 20);
-            let member = PopMember::from_expr(MemberId(i as u64), None, expr, dataset.n_features, &options);
+            let member = PopMember::from_expr(expr, dataset.n_features, &options);
             members.push(member);
         }
 

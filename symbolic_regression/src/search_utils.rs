@@ -10,7 +10,7 @@ use crate::dataset::{Dataset, TaggedDataset};
 use crate::hall_of_fame::HallOfFame;
 use crate::loss_functions::baseline_loss_from_zero_expression;
 use crate::options::Options;
-use crate::pop_member::{Evaluator, MemberId, PopMember};
+use crate::pop_member::{Evaluator, PopMember};
 use crate::population::Population;
 use crate::progress_bars::SearchProgress;
 use crate::random::shuffle;
@@ -70,7 +70,6 @@ pub(crate) struct PopState<T: Float + AddAssign, Ops, const D: usize> {
     pub(crate) grad_ctx: dynamic_expressions::GradContext<T, D>,
     pub(crate) rng: Rng,
     pub(crate) batch_dataset: Option<Dataset<T>>,
-    pub(crate) next_id: u64,
 }
 
 impl<T: Float + AddAssign, Ops, const D: usize> PopState<T, Ops, D> {
@@ -121,7 +120,6 @@ impl<T: Float + AddAssign, Ops, const D: usize> PopState<T, Ops, D> {
             options,
             evaluator: &mut self.evaluator,
             grad_ctx: &mut self.grad_ctx,
-            next_id: &mut self.next_id,
             controller,
             _ops: core::marker::PhantomData,
         };
@@ -595,7 +593,6 @@ fn apply_task_result<T, Ops, const D: usize>(
             &candidates,
             options.fraction_replaced,
             &mut st.rng,
-            &mut st.next_id,
             options.deterministic,
         );
     }
@@ -607,7 +604,6 @@ fn apply_task_result<T, Ops, const D: usize>(
             &dominating,
             options.fraction_replaced_hof,
             &mut st.rng,
-            &mut st.next_id,
             options.deterministic,
         );
     }
@@ -637,9 +633,6 @@ where
         let mut rng = Rng::with_seed(options.seed.wrapping_add(pop_i as u64));
         let mut evaluator = Evaluator::new(dataset.n_rows);
         let grad_ctx = dynamic_expressions::GradContext::new(dataset.n_rows);
-
-        let mut next_id = (pop_i as u64) << 32;
-
         let nlength = 3usize;
         let mut members = Vec::with_capacity(options.population_size);
         for _ in 0..options.population_size {
@@ -653,8 +646,7 @@ where
                 nlength,
                 options.maxsize,
             );
-            let mut m = PopMember::from_expr(MemberId(next_id), None, expr, dataset.n_features, options);
-            next_id += 1;
+            let mut m = PopMember::from_expr(expr, dataset.n_features, options);
             let _ = m.evaluate(&full_dataset, options, &mut evaluator);
             total_evals += 1;
             hall.consider(&m, options, options.maxsize);
@@ -670,7 +662,6 @@ where
             grad_ctx,
             rng,
             batch_dataset: None,
-            next_id,
         }));
     }
 
